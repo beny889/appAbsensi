@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Absensi</string>
+
+    <!-- Home Screen -->
+    <string name="greeting">Selamat Datang,</string>
+    <string name="check_in">Check In</string>
+    <string name="check_out">Check Out</string>
+    <string name="today_attendance">Absensi Hari Ini</string>
+    <string name="duration">Durasi</string>
+    <string name="history">Riwayat</string>
+    <string name="profile">Profil</string>
+
+    <!-- Permissions -->
+    <string name="camera_permission_required">Izin Kamera diperlukan</string>
+    <string name="location_permission_required">Izin Lokasi diperlukan</string>
+</resources>

@@ -1,0 +1,143 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum AttendanceType {
+  CHECK_IN
+  CHECK_OUT
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Models
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  password      String
+  name          String
+  role          Role         @default(EMPLOYEE)
+  phone         String?
+  position      String?
+  department    String?
+
+  // Face recognition data
+  faceEmbedding String?      @db.Text
+  faceImageUrl  String?
+
+  // Status
+  isActive      Boolean      @default(true)
+
+  // Timestamps
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  attendances      Attendance[]
+  faceRegistration FaceRegistration?
+
+  @@map("users")
+}
+
+model Attendance {
+  id              String         @id @default(cuid())
+  userId          String
+  type            AttendanceType
+
+  // Location data
+  latitude        Float
+  longitude       Float
+  locationId      String?
+
+  // Face verification
+  faceImageUrl    String?
+  similarity      Float?         // Face match similarity score
+
+  // Additional info
+  notes           String?
+  isVerified      Boolean        @default(true)
+
+  // Timestamps
+  timestamp       DateTime       @default(now())
+  createdAt       DateTime       @default(now())
+
+  // Relations
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location        Location?      @relation(fields: [locationId], references: [id])
+
+  @@map("attendances")
+  @@index([userId])
+  @@index([timestamp])
+}
+
+model Location {
+  id          String       @id @default(cuid())
+  name        String
+  address     String?
+  latitude    Float
+  longitude   Float
+  radius      Float        @default(100) // in meters
+
+  isActive    Boolean      @default(true)
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  attendances Attendance[]
+
+  @@map("locations")
+}
+
+model Settings {
+  id                    String   @id @default(cuid())
+  key                   String   @unique
+  value                 String   @db.Text
+  description           String?
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model FaceRegistration {
+  id              String              @id @default(cuid())
+  name            String
+  faceEmbedding   String              @db.Text
+  faceImageUrl    String?
+  status          RegistrationStatus  @default(PENDING)
+
+  // Admin review
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+
+  // Link to created user (if approved)
+  userId          String?             @unique
+  user            User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Timestamps
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@map("face_registrations")
+  @@index([status])
+  @@index([createdAt])
+}

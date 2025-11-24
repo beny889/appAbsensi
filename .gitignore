@@ -1,0 +1,38 @@
+# General
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Build
+dist/
+build/
+
+# Logs
+*.log
+logs/*.log
+!logs/.gitkeep
+
+# OS
+Thumbs.db
+
+# IDE
+*.sublime-*
+.project
+.classpath
+.settings/
+.vscode/

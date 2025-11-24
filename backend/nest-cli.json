@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "watchAssets": true
+  },
+  "exclude": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.git/**",
+    "**/coverage/**",
+    "**/.idea/**",
+    "**/.vscode/**",
+    "**/uploads/**",
+    "**/temp/**",
+    "**/logs/**",
+    "**/.nyc_output/**",
+    "**/.*"
+  ]
+}
