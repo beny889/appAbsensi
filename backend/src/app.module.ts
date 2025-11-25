@@ -8,6 +8,8 @@ import { EmployeeModule } from './modules/employee/employee.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { FaceRegistrationModule } from './modules/face-registration/face-registration.module';
+import { WorkScheduleModule } from './modules/work-schedule/work-schedule.module';
+import { DepartmentModule } from './modules/department/department.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { FaceRegistrationModule } from './modules/face-registration/face-registr
     AttendanceModule,
     ReportsModule,
     FaceRegistrationModule,
+    WorkScheduleModule,
+    DepartmentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

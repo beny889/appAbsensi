@@ -23,21 +23,21 @@ data class UserDto(
     @SerializedName("id")
     val id: String,
     @SerializedName("email")
-    val email: String,
+    val email: String? = null, // Nullable for EMPLOYEE (only ADMIN has email)
     @SerializedName("name")
     val name: String,
     @SerializedName("role")
     val role: String,
     @SerializedName("phone")
-    val phone: String?,
+    val phone: String? = null,
     @SerializedName("position")
-    val position: String?,
+    val position: String? = null,
     @SerializedName("department")
-    val department: String?,
+    val department: String? = null,
     @SerializedName("faceImageUrl")
-    val faceImageUrl: String?,
+    val faceImageUrl: String? = null,
     @SerializedName("isActive")
-    val isActive: Boolean
+    val isActive: Boolean = true
 )
 
 // Register Request

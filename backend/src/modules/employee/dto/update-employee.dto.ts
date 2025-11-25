@@ -19,7 +19,7 @@ export class UpdateEmployeeDto {
 
   @IsString()
   @IsOptional()
-  department?: string;
+  departmentId?: string;
 
   @IsBoolean()
   @IsOptional()

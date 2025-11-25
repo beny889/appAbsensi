@@ -29,17 +29,18 @@ enum RegistrationStatus {
 // Models
 model User {
   id            String       @id @default(cuid())
-  email         String       @unique
-  password      String
+  email         String?      @unique  // Only for ADMIN, nullable for EMPLOYEE
+  password      String?                // Only for ADMIN, nullable for EMPLOYEE
   name          String
   role          Role         @default(EMPLOYEE)
   phone         String?
   position      String?
-  department    String?
+  departmentId  String?
 
-  // Face recognition data
-  faceEmbedding String?      @db.Text
-  faceImageUrl  String?
+  // Face recognition data (for EMPLOYEE only)
+  faceEmbedding  String?      @db.Text  // Single embedding (legacy/backward compatibility)
+  faceEmbeddings String?      @db.Text  // Multiple embeddings as JSON array for better accuracy
+  faceImageUrl   String?
 
   // Status
   isActive      Boolean      @default(true)
@@ -51,8 +52,10 @@ model User {
   // Relations
   attendances      Attendance[]
   faceRegistration FaceRegistration?
+  department       Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
   @@map("users")
+  @@index([departmentId])
 }
 
 model Attendance {
@@ -60,14 +63,16 @@ model Attendance {
   userId          String
   type            AttendanceType
 
-  // Location data
-  latitude        Float
-  longitude       Float
-  locationId      String?
-
   // Face verification
   faceImageUrl    String?
   similarity      Float?         // Face match similarity score
+
+  // Late/Early tracking
+  isLate          Boolean?       // True if checked in late
+  lateMinutes     Int?           // Minutes late (positive number)
+  isEarlyCheckout Boolean?       // True if checked out early
+  earlyMinutes    Int?           // Minutes early (positive number)
+  scheduledTime   String?        // Scheduled time for this check (HH:MM)
 
   // Additional info
   notes           String?
@@ -79,30 +84,10 @@ model Attendance {
 
   // Relations
   user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  location        Location?      @relation(fields: [locationId], references: [id])
 
   @@map("attendances")
   @@index([userId])
   @@index([timestamp])
-}
-
-model Location {
-  id          String       @id @default(cuid())
-  name        String
-  address     String?
-  latitude    Float
-  longitude   Float
-  radius      Float        @default(100) // in meters
-
-  isActive    Boolean      @default(true)
-
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  // Relations
-  attendances Attendance[]
-
-  @@map("locations")
 }
 
 model Settings {
@@ -118,11 +103,12 @@ model Settings {
 }
 
 model FaceRegistration {
-  id              String              @id @default(cuid())
-  name            String
-  faceEmbedding   String              @db.Text
-  faceImageUrl    String?
-  status          RegistrationStatus  @default(PENDING)
+  id               String              @id @default(cuid())
+  name             String
+  faceEmbedding    String?             @db.Text  // Single embedding (legacy)
+  faceEmbeddings   String?             @db.Text  // Multiple embeddings as JSON array
+  faceImageUrl     String?
+  status           RegistrationStatus  @default(PENDING)
 
   // Admin review
   reviewedBy      String?
@@ -140,4 +126,41 @@ model FaceRegistration {
   @@map("face_registrations")
   @@index([status])
   @@index([createdAt])
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users         User[]
+  workSchedules WorkSchedule[]
+
+  @@map("departments")
+  @@index([name])
+}
+
+model WorkSchedule {
+  id           String     @id @default(cuid())
+  departmentId String
+  checkInTime  String     // Format: "HH:MM" (e.g., "09:00")
+  checkOutTime String     // Format: "HH:MM" (e.g., "17:00")
+  isActive     Boolean    @default(true)
+
+  // Timestamps
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  // Relations
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@map("work_schedules")
+  @@unique([departmentId]) // One schedule per department
+  @@index([departmentId])
 }

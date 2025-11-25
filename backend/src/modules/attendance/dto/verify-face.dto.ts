@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsNumber, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsEnum } from 'class-validator';
 import { AttendanceType } from '@prisma/client';
 
 export class VerifyFaceDto {
@@ -9,12 +9,4 @@ export class VerifyFaceDto {
   @IsString()
   @IsNotEmpty()
   faceEmbedding: string;
-
-  @IsNumber()
-  @IsNotEmpty()
-  latitude: number;
-
-  @IsNumber()
-  @IsNotEmpty()
-  longitude: number;
 }

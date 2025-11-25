@@ -6,6 +6,12 @@ import {
   DashboardStats,
   DailyReport,
   MonthlyReport,
+  WorkSchedule,
+  CreateWorkScheduleDto,
+  UpdateWorkScheduleDto,
+  Department,
+  CreateDepartmentDto,
+  UpdateDepartmentDto,
 } from '@/types';
 
 // Auth API
@@ -50,6 +56,11 @@ export const attendanceApi = {
     const response = await apiClient.get<Attendance[]>(`/attendance/user/${userId}`, {
       params: { startDate, endDate },
     });
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/attendance/${id}`);
     return response.data;
   },
 };
@@ -112,5 +123,64 @@ export const faceRegistrationApi = {
   getStats: async (): Promise<import('@/types').FaceRegistrationStats> => {
     const response = await apiClient.get('/face-registration/stats/overview');
     return response.data;
+  },
+};
+
+// Department API
+export const departmentApi = {
+  getAll: async (): Promise<Department[]> => {
+    const response = await apiClient.get<Department[]>('/departments');
+    return response.data;
+  },
+
+  getById: async (id: string): Promise<Department> => {
+    const response = await apiClient.get<Department>(`/departments/${id}`);
+    return response.data;
+  },
+
+  create: async (data: CreateDepartmentDto): Promise<Department> => {
+    const response = await apiClient.post<Department>('/departments', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: UpdateDepartmentDto): Promise<Department> => {
+    const response = await apiClient.put<Department>(`/departments/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/departments/${id}`);
+  },
+};
+
+// Work Schedule API
+export const workScheduleApi = {
+  getAll: async (): Promise<WorkSchedule[]> => {
+    const response = await apiClient.get<WorkSchedule[]>('/work-schedules');
+    return response.data;
+  },
+
+  getById: async (id: string): Promise<WorkSchedule> => {
+    const response = await apiClient.get<WorkSchedule>(`/work-schedules/${id}`);
+    return response.data;
+  },
+
+  getByDepartment: async (department: string): Promise<WorkSchedule> => {
+    const response = await apiClient.get<WorkSchedule>(`/work-schedules/department/${department}`);
+    return response.data;
+  },
+
+  create: async (data: CreateWorkScheduleDto): Promise<WorkSchedule> => {
+    const response = await apiClient.post<WorkSchedule>('/work-schedules', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: UpdateWorkScheduleDto): Promise<WorkSchedule> => {
+    const response = await apiClient.put<WorkSchedule>(`/work-schedules/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/work-schedules/${id}`);
   },
 };

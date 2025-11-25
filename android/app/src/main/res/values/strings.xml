@@ -4,8 +4,8 @@
 
     <!-- Home Screen -->
     <string name="greeting">Selamat Datang,</string>
-    <string name="check_in">Check In</string>
-    <string name="check_out">Check Out</string>
+    <string name="check_in">Masuk</string>
+    <string name="check_out">Pulang</string>
     <string name="today_attendance">Absensi Hari Ini</string>
     <string name="duration">Durasi</string>
     <string name="history">Riwayat</string>

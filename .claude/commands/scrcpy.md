@@ -110,6 +110,18 @@ cd "$(dirname "$SCRCPY_CMD")" 2>/dev/null || true
 
 echo "✅ scrcpy launched!"
 echo ""
+
+# Step 5: Setup ADB reverse for backend connection
+echo "🔧 Setting up ADB reverse for backend connection..."
+"$ADB_CMD" reverse tcp:3001 tcp:3001 2>/dev/null
+if [ $? -eq 0 ]; then
+    echo "✅ ADB reverse tcp:3001 setup successful!"
+    echo "   Android app can now access backend at localhost:3001"
+else
+    echo "⚠️  ADB reverse setup failed (device may need to be unlocked)"
+fi
+echo ""
+
 echo "**Controls:**"
 echo "  - Click & drag: Touch & swipe"
 echo "  - Scroll: Mouse wheel"

@@ -21,6 +21,8 @@ import {
   Assignment as AssignmentIcon,
   Assessment as AssessmentIcon,
   FaceRetouchingNatural as FaceIcon,
+  Schedule as ScheduleIcon,
+  Business as BusinessIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material';
 import { authApi } from '@/api/auth';
@@ -32,6 +34,8 @@ const menuItems = [
   { text: 'Karyawan', icon: <PeopleIcon />, path: '/employees' },
   { text: 'Absensi', icon: <AssignmentIcon />, path: '/attendance' },
   { text: 'Pendaftaran Wajah', icon: <FaceIcon />, path: '/face-registration/pending' },
+  { text: 'Departemen', icon: <BusinessIcon />, path: '/departments' },
+  { text: 'Jadwal Kerja', icon: <ScheduleIcon />, path: '/work-schedules' },
   { text: 'Laporan Harian', icon: <AssessmentIcon />, path: '/reports/daily' },
   { text: 'Laporan Bulanan', icon: <AssessmentIcon />, path: '/reports/monthly' },
 ];

@@ -34,6 +34,15 @@ interface ApiService {
     ): Response<AttendanceResponse>
 
     /**
+     * Verify face only WITHOUT creating attendance
+     * Used for early checkout confirmation flow
+     */
+    @POST("attendance/verify-only")
+    suspend fun verifyFaceOnly(
+        @Body request: VerifyFaceOnlyRequest
+    ): Response<VerifyFaceOnlyResponse>
+
+    /**
      * Get today's attendance (check-in and check-out)
      * Requires JWT authentication
      */
@@ -41,6 +50,13 @@ interface ApiService {
     suspend fun getTodayAttendance(
         @Header("Authorization") token: String
     ): Response<List<AttendanceResponse>>
+
+    /**
+     * Get ALL today's attendance (public - NO authentication required)
+     * Returns grouped attendance per user (Masuk & Pulang combined)
+     */
+    @GET("attendance/today-all")
+    suspend fun getTodayAllAttendance(): Response<List<GroupedAttendanceResponse>>
 
     /**
      * Get user's attendance history
@@ -60,4 +76,20 @@ interface ApiService {
     suspend fun login(
         @Body request: LoginRequest
     ): Response<LoginResponse>
+
+    /**
+     * Sync embeddings for on-device face recognition (NO authentication required)
+     * Returns all approved user embeddings for MobileFaceNet verification
+     */
+    @GET("attendance/sync-embeddings")
+    suspend fun syncEmbeddings(): Response<SyncEmbeddingsResponse>
+
+    /**
+     * Create attendance from device-verified face (NO authentication required)
+     * Called when Android verifies face on-device using MobileFaceNet
+     */
+    @POST("attendance/verify-device")
+    suspend fun verifyDevice(
+        @Body request: VerifyDeviceRequest
+    ): Response<AttendanceResponse>
 }

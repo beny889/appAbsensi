@@ -6,6 +6,7 @@
 
 ## 📋 Apa yang Anda Miliki
 
+✅ **Python ML Service** (Flask + face_recognition + dlib) - COMPLETE & READY ⚡ (NEW!)
 ✅ **Backend API** (NestJS + PostgreSQL) - COMPLETE & READY
 ✅ **Web Admin Panel** (React + TypeScript) - COMPLETE & READY
 ✅ **Android App** (Kotlin) - STRUCTURE READY
@@ -19,19 +20,46 @@ Gunakan custom commands untuk start semua server sekaligus:
 
 ```bash
 # In Claude Code terminal
-/start    # Start backend + web admin automatically!
+/start    # Start backend + web admin in separate windows!
 /scrcpy   # Launch Android screen mirroring (jika perlu)
 ```
 
-**That's it!** Servers akan start otomatis. Lanjut ke Step 4 untuk create admin account.
+Atau jalankan langsung dari `scripts/` folder:
+
+```bash
+# Windows - Start all services
+scripts\start-all.bat
+
+# Atau start satu-satu:
+scripts\start-backend.bat        # Backend (port 3001)
+scripts\start-web-admin.bat      # Web Admin (port 5173)
+scripts\start-face-recognition.bat  # ML Service (port 5000)
+
+# Stop all services:
+scripts\stop-all.bat
+```
+
+**That's it!** Servers akan start di jendela CMD terpisah. Lanjut ke Step 5 untuk create admin account.
 
 📖 **Detail tentang commands**: Lihat `COMMANDS.md`
 
 ---
 
-## 🚀 Quick Start (Manual - 5 Menit)
+## 🚀 Quick Start (Manual - 10 Menit)
 
-### Step 1: Install PostgreSQL
+### Step 1: Install Prerequisites
+
+**Python 3.11+ (untuk ML Service)** ⚡ (NEW!):
+```bash
+# Windows: Download dari https://www.python.org/downloads/
+# Mac: brew install python@3.11
+# Linux: sudo apt install python3.11 python3.11-venv python3-pip
+
+# Verify
+python --version  # Should be 3.11+
+```
+
+**PostgreSQL**:
 
 **Windows**:
 ```bash
@@ -51,10 +79,35 @@ sudo apt install postgresql
 sudo systemctl start postgresql
 ```
 
-### Step 2: Start Backend
+### Step 2: Start Python ML Service ⚡ (NEW!)
 
 ```bash
 # Buka terminal 1
+cd face-recognition-service
+
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# Windows:
+venv\Scripts\activate
+# Mac/Linux:
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start ML service
+python app.py
+
+# ✅ ML Service running di http://localhost:5000
+# KEEP THIS RUNNING! Don't close this terminal.
+```
+
+### Step 3: Start Backend
+
+```bash
+# Buka terminal 2 (baru)
 cd backend
 
 # Install dependencies
@@ -75,10 +128,10 @@ npm run start:dev
 # ✅ Backend running di http://localhost:3001/api
 ```
 
-### Step 3: Start Web Admin
+### Step 4: Start Web Admin
 
 ```bash
-# Buka terminal 2 (baru)
+# Buka terminal 3 (baru)
 cd web-admin
 
 # Install dependencies
@@ -90,10 +143,10 @@ npm run dev
 # ✅ Web Admin running di http://localhost:5173
 ```
 
-### Step 4: Create Admin Account
+### Step 5: Create Admin Account
 
 ```bash
-# Terminal 3 (atau gunakan Postman)
+# Terminal 4 (atau gunakan Postman)
 curl -X POST http://localhost:3001/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
@@ -104,7 +157,7 @@ curl -X POST http://localhost:3001/api/auth/register \
   }'
 ```
 
-### Step 5: Login
+### Step 6: Login
 
 1. Buka browser: http://localhost:5173
 2. Login dengan:
@@ -118,10 +171,11 @@ curl -X POST http://localhost:3001/api/auth/register \
 
 | File | Deskripsi |
 |------|-----------|
-| **QUICKSTART.md** | Panduan setup detail (BACA INI DULU!) |
 | **README.md** | Overview lengkap proyek |
-| **PROJECT_SUMMARY.md** | Summary apa saja yang sudah dibuat |
+| **COMMANDS.md** | Panduan commands & scripts |
+| **FEATURES.md** | Daftar fitur lengkap |
 | **DEPLOYMENT.md** | Cara deploy ke production |
+| **CHANGELOG.md** | History perubahan |
 
 ---
 
@@ -225,23 +279,26 @@ ALTER USER postgres PASSWORD 'newpassword';
 
 ### Getting Started
 - ✅ **START_HERE.md** (You are here!)
-- 📖 **QUICKSTART.md** - Detailed setup guide
 - 📖 **README.md** - Complete overview
+- 📖 **COMMANDS.md** - Commands & scripts guide
 
 ### Technical Docs
-- 🔧 **backend/README.md** - Backend API documentation
-- 💻 **web-admin/README.md** - Web Admin documentation
-- 📱 **android/ANDROID_GUIDE.md** - Android development guide
-
-### Advanced
+- 📋 **FEATURES.md** - Full feature documentation
 - 🚀 **DEPLOYMENT.md** - Production deployment
-- 📊 **PROJECT_SUMMARY.md** - What's been built
+- 📝 **CHANGELOG.md** - Version history
 
 ---
 
 ## ✅ Quick Checks
 
 Sebelum mulai development, pastikan:
+
+**Python ML Service** ⚡ (NEW!):
+- [ ] Python 3.11+ installed
+- [ ] Virtual environment created
+- [ ] pip install berhasil
+- [ ] Service running di port 5000
+- [ ] Health check success: curl http://localhost:5000/health
 
 **Backend**:
 - [ ] Node.js 18+ installed
@@ -323,6 +380,23 @@ Sistem Anda sudah siap! Pilih salah satu path di atas dan mulai!
 ## 📞 Quick Commands Reference
 
 ```bash
+# === SCRIPTS (Recommended - Opens in Separate Windows) ===
+scripts\start-all.bat            # Start all services
+scripts\start-backend.bat        # Start Backend only (port 3001)
+scripts\start-web-admin.bat      # Start Web Admin only (port 5173)
+scripts\start-face-recognition.bat # Start ML Service only (port 5000)
+scripts\stop-all.bat             # Stop all services
+scripts\launch-scrcpy.bat        # Launch Android screen mirroring
+
+# === MANUAL COMMANDS ===
+
+# Python ML Service
+cd face-recognition-service
+python -m venv venv               # Create virtual environment
+venv\Scripts\activate             # Activate (Windows)
+pip install -r requirements.txt   # Install dependencies
+python app.py                     # Start ML service
+
 # Backend
 cd backend
 npm install                    # Install dependencies
@@ -336,10 +410,9 @@ npm install                    # Install dependencies
 npm run dev                   # Start development server
 npm run build                 # Build for production
 
-# Database
-sudo systemctl start postgresql    # Start PostgreSQL (Linux)
-brew services start postgresql     # Start PostgreSQL (Mac)
-psql -U postgres                  # Connect to PostgreSQL
+# Health Checks
+curl http://localhost:5000/health  # ML Service
+curl http://localhost:3001/api     # Backend
 ```
 
 ---
@@ -350,20 +423,19 @@ Selamat memulai journey development sistem absensi Anda!
 
 ---
 
-**Last Updated**: November 23, 2025
+**Last Updated**: November 25, 2025
 **Status**: ✅ Ready to Use
-**Version**: 1.0.0
+**Version**: 1.5.0 (Late/Early Status Tracking)
 
 ---
 
 ## 🔗 Quick Links
 
-- [Backend README](backend/README.md)
-- [Web Admin README](web-admin/README.md)
-- [Android Guide](android/ANDROID_GUIDE.md)
-- [Deployment Guide](DEPLOYMENT.md)
-- [Quick Start](QUICKSTART.md)
-- [Project Summary](PROJECT_SUMMARY.md)
+- [README](README.md) - Complete overview
+- [Commands](COMMANDS.md) - Scripts & commands
+- [Features](FEATURES.md) - Full feature list
+- [Deployment](DEPLOYMENT.md) - Production guide
+- [Changelog](CHANGELOG.md) - Version history
 
 ---
 

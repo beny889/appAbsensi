@@ -27,7 +27,7 @@ class HomeFragment : Fragment() {
     private lateinit var attendanceAdapter: AttendanceAdapter
 
     private val dateFormat = SimpleDateFormat("EEEE, dd MMM yyyy", Locale("id", "ID"))
-    private val timeFormat = SimpleDateFormat("HH:mm", Locale("id", "ID"))
+    private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale("id", "ID"))
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -41,10 +41,28 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupSwipeRefresh()
         setupRecyclerView()
         setupObservers()
         setupListeners()
         updateDateTime()
+    }
+
+    private fun setupSwipeRefresh() {
+        binding.swipeRefresh.apply {
+            // Set refresh indicator colors
+            setColorSchemeResources(
+                android.R.color.holo_blue_bright,
+                android.R.color.holo_green_light,
+                android.R.color.holo_orange_light,
+                android.R.color.holo_red_light
+            )
+
+            // Handle refresh action
+            setOnRefreshListener {
+                viewModel.loadTodayAttendance()
+            }
+        }
     }
 
     private fun setupRecyclerView() {
@@ -56,6 +74,11 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupObservers() {
+        // Observe loading state for SwipeRefresh
+        viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
+            binding.swipeRefresh.isRefreshing = isLoading
+        }
+
         // Observe today's attendance list
         viewModel.todayAttendanceList.observe(viewLifecycleOwner) { list ->
             if (list.isEmpty()) {
@@ -85,14 +108,6 @@ class HomeFragment : Fragment() {
                 requestPermissions()
             }
         }
-
-        binding.btnRekamData.setOnClickListener {
-            if (checkPermissions()) {
-                openCameraForRegistration()
-            } else {
-                requestPermissions()
-            }
-        }
     }
 
     private fun updateDateTime() {
@@ -100,8 +115,8 @@ class HomeFragment : Fragment() {
         binding.tvDate.text = dateFormat.format(currentDate)
         binding.tvTime.text = timeFormat.format(currentDate)
 
-        // Update time every minute
-        binding.root.postDelayed({ updateDateTime() }, 60000)
+        // Update time every second to show seconds
+        binding.root.postDelayed({ updateDateTime() }, 1000)
     }
 
     private fun checkPermissions(): Boolean {

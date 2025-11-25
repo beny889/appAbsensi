@@ -106,7 +106,7 @@ export default function MonthlyReports() {
             <Grid item xs={12} sm={6} md={3}>
               <Paper sx={{ p: 2 }}>
                 <Typography variant="body2" color="textSecondary">
-                  Total Check-In
+                  Total Masuk
                 </Typography>
                 <Typography variant="h4" fontWeight="bold" color="primary">
                   {report.totalCheckIns}
@@ -116,7 +116,7 @@ export default function MonthlyReports() {
             <Grid item xs={12} sm={6} md={3}>
               <Paper sx={{ p: 2 }}>
                 <Typography variant="body2" color="textSecondary">
-                  Total Check-Out
+                  Total Pulang
                 </Typography>
                 <Typography variant="h4" fontWeight="bold" color="secondary">
                   {report.totalCheckOuts}

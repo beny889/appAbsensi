@@ -23,7 +23,7 @@ export class ApproveRegistrationDto {
 
   @IsString()
   @IsOptional()
-  department?: string;
+  departmentId?: string;
 
   @IsString()
   @IsOptional()

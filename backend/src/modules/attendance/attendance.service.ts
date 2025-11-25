@@ -5,15 +5,115 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateAttendanceDto, VerifyFaceDto } from './dto';
+import { FaceRecognitionMlService } from '../face-registration/face-recognition-ml.service';
+import { CreateAttendanceDto, VerifyFaceDto, VerifyDeviceDto } from './dto';
 import { AttendanceType } from '@prisma/client';
 
 @Injectable()
 export class AttendanceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private faceRecognitionMl: FaceRecognitionMlService,
+  ) {}
 
-  private readonly FACE_SIMILARITY_THRESHOLD = 0.6;
-  private readonly DEFAULT_LOCATION_RADIUS = 100;
+  private readonly FACE_DISTANCE_THRESHOLD = 0.6; // Standard dlib Euclidean distance threshold
+  private readonly WIB_OFFSET_HOURS = 7; // WIB = UTC+7
+
+  /**
+   * Convert UTC date to WIB hours and minutes
+   */
+  private getWIBTime(date: Date): { hours: number; minutes: number } {
+    const utcHours = date.getUTCHours();
+    const utcMinutes = date.getUTCMinutes();
+
+    // Add WIB offset (UTC+7)
+    let wibHours = utcHours + this.WIB_OFFSET_HOURS;
+
+    // Handle day overflow
+    if (wibHours >= 24) {
+      wibHours -= 24;
+    }
+
+    return { hours: wibHours, minutes: utcMinutes };
+  }
+
+  /**
+   * Calculate late/early status based on work schedule
+   */
+  private async calculateLateEarlyStatus(
+    userId: string,
+    type: AttendanceType,
+    timestamp: Date,
+  ): Promise<{
+    isLate?: boolean;
+    lateMinutes?: number;
+    isEarlyCheckout?: boolean;
+    earlyMinutes?: number;
+    scheduledTime?: string;
+  }> {
+    // Get user with department
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        department: {
+          include: {
+            workSchedules: {
+              where: { isActive: true },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    console.log(`[Late/Early Check] User: ${user?.name}, Department: ${user?.department?.name || 'NONE'}, Schedule: ${user?.department?.workSchedules?.[0] ? 'FOUND' : 'NOT FOUND'}`);
+
+    if (!user?.department?.workSchedules?.[0]) {
+      // No schedule found, return empty
+      console.log(`[Late/Early Check] No schedule found for user ${user?.name} - departmentId: ${user?.departmentId}`);
+      return {};
+    }
+
+    const schedule = user.department.workSchedules[0];
+
+    // Convert to WIB timezone (UTC+7) for comparison with schedule
+    const wibTime = this.getWIBTime(timestamp);
+    const currentHour = wibTime.hours;
+    const currentMinute = wibTime.minutes;
+    const currentTotalMinutes = currentHour * 60 + currentMinute;
+
+    console.log(`[Late/Early Check] Schedule checkInTime: ${schedule.checkInTime}, checkOutTime: ${schedule.checkOutTime}`);
+    console.log(`[Late/Early Check] UTC time: ${timestamp.getUTCHours()}:${timestamp.getUTCMinutes()}, WIB time: ${currentHour}:${currentMinute} (${currentTotalMinutes} min)`);
+
+    if (type === AttendanceType.CHECK_IN) {
+      // Parse scheduled check-in time
+      const [scheduleHour, scheduleMinute] = schedule.checkInTime.split(':').map(Number);
+      const scheduleTotalMinutes = scheduleHour * 60 + scheduleMinute;
+
+      const diffMinutes = currentTotalMinutes - scheduleTotalMinutes;
+
+      console.log(`[Late/Early Check] CHECK_IN: scheduled=${scheduleTotalMinutes}min, current=${currentTotalMinutes}min, diff=${diffMinutes}min, isLate=${diffMinutes > 0}`);
+
+      return {
+        isLate: diffMinutes > 0,
+        lateMinutes: diffMinutes > 0 ? diffMinutes : null,
+        scheduledTime: schedule.checkInTime,
+      };
+    } else {
+      // CHECK_OUT
+      // Parse scheduled check-out time
+      const [scheduleHour, scheduleMinute] = schedule.checkOutTime.split(':').map(Number);
+      const scheduleTotalMinutes = scheduleHour * 60 + scheduleMinute;
+
+      const diffMinutes = scheduleTotalMinutes - currentTotalMinutes;
+
+      return {
+        isEarlyCheckout: diffMinutes > 0,
+        earlyMinutes: diffMinutes > 0 ? diffMinutes : null,
+        scheduledTime: schedule.checkOutTime,
+      };
+    }
+  }
 
   async create(userId: string, dto: CreateAttendanceDto) {
     const today = new Date();
@@ -65,16 +165,23 @@ export class AttendanceService {
       }
     }
 
+    // Calculate late/early status based on work schedule
+    const timestamp = new Date();
+    const lateEarlyStatus = await this.calculateLateEarlyStatus(userId, dto.type, timestamp);
+
     const attendance = await this.prisma.attendance.create({
       data: {
         userId,
         type: dto.type,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
-        locationId: dto.locationId,
         faceImageUrl: dto.faceImageUrl,
         similarity: dto.similarity,
         notes: dto.notes,
+        timestamp,
+        isLate: lateEarlyStatus.isLate,
+        lateMinutes: lateEarlyStatus.lateMinutes,
+        isEarlyCheckout: lateEarlyStatus.isEarlyCheckout,
+        earlyMinutes: lateEarlyStatus.earlyMinutes,
+        scheduledTime: lateEarlyStatus.scheduledTime,
       },
       include: {
         user: {
@@ -129,43 +236,23 @@ export class AttendanceService {
       throw new BadRequestException('Face data not found. Please contact administrator.');
     }
 
-    const similarity = this.calculateCosineSimilarity(
+    const distance = this.calculateEuclideanDistance(
       JSON.parse(user.faceEmbedding),
       JSON.parse(dto.faceEmbedding),
     );
 
-    if (similarity < this.FACE_SIMILARITY_THRESHOLD) {
+    // Lower distance = more similar (dlib standard)
+    // If distance > threshold, faces are too different
+    if (distance > this.FACE_DISTANCE_THRESHOLD) {
       throw new UnauthorizedException('Face verification failed');
     }
 
-    const locations = await this.prisma.location.findMany({
-      where: { isActive: true },
-    });
-
-    let validLocation = null;
-    for (const location of locations) {
-      const distance = this.calculateDistance(
-        dto.latitude,
-        dto.longitude,
-        location.latitude,
-        location.longitude,
-      );
-
-      if (distance <= location.radius) {
-        validLocation = location;
-        break;
-      }
-    }
-
-    if (!validLocation && locations.length > 0) {
-      throw new BadRequestException('You are outside the allowed location radius');
-    }
-
+    // No location validation needed - face recognition only
+    // Convert distance to similarity percentage for display (1 - distance)
+    const similarity = Math.max(0, 1 - distance);
     return {
       verified: true,
       similarity,
-      locationId: validLocation?.id,
-      locationName: validLocation?.name,
     };
   }
 
@@ -184,15 +271,6 @@ export class AttendanceService {
 
     return this.prisma.attendance.findMany({
       where,
-      include: {
-        location: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-          },
-        },
-      },
       orderBy: { timestamp: 'desc' },
     });
   }
@@ -214,6 +292,86 @@ export class AttendanceService {
       },
       orderBy: { timestamp: 'asc' },
     });
+  }
+
+  /**
+   * Get ALL today's attendance (public - no auth required)
+   * Returns grouped attendance per user (one card per user with masuk/pulang times)
+   * Sorted by recent activity (latest timestamp first)
+   */
+  async getTodayAllAttendance() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Get all attendance records for today
+    const attendances = await this.prisma.attendance.findMany({
+      where: {
+        timestamp: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            position: true,
+            faceImageUrl: true,
+            department: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { timestamp: 'asc' },
+    });
+
+    // Group by user - combine MASUK and PULANG into one record
+    const userAttendanceMap = new Map<string, any>();
+
+    for (const attendance of attendances) {
+      const userId = attendance.userId;
+
+      if (!userAttendanceMap.has(userId)) {
+        userAttendanceMap.set(userId, {
+          id: `${userId}-${today.toISOString().split('T')[0]}`,
+          userId: userId,
+          user: attendance.user,
+          checkInTime: null,
+          checkOutTime: null,
+          checkInTimestamp: null,
+          checkOutTimestamp: null,
+          latestActivity: attendance.timestamp,
+        });
+      }
+
+      const record = userAttendanceMap.get(userId);
+
+      if (attendance.type === 'CHECK_IN') {
+        record.checkInTime = attendance.timestamp;
+        record.checkInTimestamp = attendance.timestamp;
+      } else if (attendance.type === 'CHECK_OUT') {
+        record.checkOutTime = attendance.timestamp;
+        record.checkOutTimestamp = attendance.timestamp;
+      }
+
+      // Update latest activity to the most recent timestamp
+      if (new Date(attendance.timestamp) > new Date(record.latestActivity)) {
+        record.latestActivity = attendance.timestamp;
+      }
+    }
+
+    // Convert map to array and sort by latest activity (most recent first)
+    const result = Array.from(userAttendanceMap.values())
+      .sort((a, b) => new Date(b.latestActivity).getTime() - new Date(a.latestActivity).getTime());
+
+    return result;
   }
 
   async getAllAttendances(startDate?: Date, endDate?: Date) {
@@ -241,13 +399,6 @@ export class AttendanceService {
             department: true,
           },
         },
-        location: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-          },
-        },
       },
       orderBy: { timestamp: 'desc' },
     });
@@ -260,16 +411,26 @@ export class AttendanceService {
    */
   async verifyFaceAnonymous(
     faceEmbedding: string,
-    latitude: number,
-    longitude: number,
     type: AttendanceType,
   ) {
-    // Parse the provided face embedding
+    // Check if input is base64 image or JSON embedding
     let providedEmbedding: number[];
+
+    // Try to parse as JSON first (for backwards compatibility)
     try {
       providedEmbedding = JSON.parse(faceEmbedding);
     } catch {
-      throw new BadRequestException('Invalid face embedding format');
+      // If parsing fails, assume it's a base64 image
+      // Extract embedding using ML service
+      try {
+        providedEmbedding = await this.faceRecognitionMl.extractFaceEmbedding(
+          faceEmbedding,
+        );
+      } catch (error) {
+        throw new BadRequestException(
+          error.message || 'Failed to extract face embedding from image',
+        );
+      }
     }
 
     // Get all approved users with face embeddings
@@ -292,70 +453,57 @@ export class AttendanceService {
       );
     }
 
-    // Find best face match
+    // Find best face match (lowest distance = best match)
     let bestMatch: any = null;
-    let bestSimilarity = 0;
+    let bestDistance = Infinity;
+
+    console.log(`[Face Match] Comparing against ${approvedUsers.length} approved users...`);
+    console.log(`[Face Match] Provided embedding length: ${providedEmbedding.length}`);
 
     for (const user of approvedUsers) {
       if (!user.faceEmbedding) continue;
 
       try {
         const userEmbedding = JSON.parse(user.faceEmbedding);
-        const similarity = this.calculateCosineSimilarity(
+        const distance = this.calculateEuclideanDistance(
           providedEmbedding,
           userEmbedding,
         );
 
-        if (similarity > bestSimilarity) {
-          bestSimilarity = similarity;
+        console.log(`[Face Match] User: ${user.name}, Distance: ${distance.toFixed(4)}`);
+
+        // Lower distance = better match
+        if (distance < bestDistance) {
+          bestDistance = distance;
           bestMatch = user;
         }
       } catch (error) {
         // Skip users with invalid embeddings
+        console.log(`[Face Match] User: ${user.name}, Error parsing embedding`);
         continue;
       }
     }
 
-    // Check if best match exceeds threshold
-    if (!bestMatch || bestSimilarity < this.FACE_SIMILARITY_THRESHOLD) {
+    console.log(`[Face Match] Best match: ${bestMatch?.name || 'NONE'}, Distance: ${bestDistance.toFixed(4)}, Threshold: ${this.FACE_DISTANCE_THRESHOLD}`);
+
+    // Check if best match is within threshold (lower distance = match)
+    // If distance > threshold, face is NOT recognized
+    if (!bestMatch || bestDistance > this.FACE_DISTANCE_THRESHOLD) {
       throw new UnauthorizedException(
-        `Face not recognized. Similarity: ${(bestSimilarity * 100).toFixed(1)}%. Please ensure your face is registered and approved.`,
+        `Wajah tidak dikenali. Distance: ${bestDistance.toFixed(4)}. Threshold: ${this.FACE_DISTANCE_THRESHOLD}. Pastikan wajah Anda sudah terdaftar dan disetujui.`,
       );
     }
 
-    // Verify location
-    const locations = await this.prisma.location.findMany({
-      where: { isActive: true },
-    });
+    // No location validation needed - face recognition only
 
-    let validLocation = null;
-    for (const location of locations) {
-      const distance = this.calculateDistance(
-        latitude,
-        longitude,
-        location.latitude,
-        location.longitude,
-      );
-
-      if (distance <= location.radius) {
-        validLocation = location;
-        break;
-      }
-    }
-
-    if (!validLocation && locations.length > 0) {
-      throw new BadRequestException(
-        'You are outside the allowed location radius',
-      );
-    }
+    // Convert distance to similarity percentage for display/storage
+    // distance 0 = 100% match, distance 0.6 = ~40% match
+    const similarity = Math.max(0, 1 - bestDistance);
 
     // Create attendance record
     const attendance = await this.create(bestMatch.id, {
       type,
-      latitude,
-      longitude,
-      locationId: validLocation?.id,
-      similarity: bestSimilarity,
+      similarity,
     });
 
     return {
@@ -367,52 +515,312 @@ export class AttendanceService {
         position: bestMatch.position,
         department: bestMatch.department,
       },
-      similarity: bestSimilarity,
+      similarity,
+      distance: bestDistance,
     };
   }
 
-  private calculateCosineSimilarity(vecA: number[], vecB: number[]): number {
-    if (vecA.length !== vecB.length) {
+  /**
+   * Verify face only (without creating attendance) - returns user + schedule info
+   * Used for early checkout confirmation flow
+   */
+  async verifyFaceOnly(faceEmbedding: string) {
+    // Check if input is base64 image or JSON embedding
+    let providedEmbedding: number[];
+
+    try {
+      providedEmbedding = JSON.parse(faceEmbedding);
+    } catch {
+      try {
+        providedEmbedding = await this.faceRecognitionMl.extractFaceEmbedding(faceEmbedding);
+      } catch (error) {
+        throw new BadRequestException(
+          error.message || 'Failed to extract face embedding from image',
+        );
+      }
+    }
+
+    // Get all approved users with face embeddings
+    const approvedUsers = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        faceEmbedding: { not: null },
+        faceRegistration: {
+          status: 'APPROVED',
+        },
+      },
+      include: {
+        faceRegistration: true,
+        department: {
+          include: {
+            workSchedules: {
+              where: { isActive: true },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    if (approvedUsers.length === 0) {
+      throw new NotFoundException(
+        'No approved users found in the system.',
+      );
+    }
+
+    // Find best face match (lowest distance = best match)
+    let bestMatch: any = null;
+    let bestDistance = Infinity;
+
+    for (const user of approvedUsers) {
+      if (!user.faceEmbedding) continue;
+
+      try {
+        const userEmbedding = JSON.parse(user.faceEmbedding);
+        const distance = this.calculateEuclideanDistance(
+          providedEmbedding,
+          userEmbedding,
+        );
+
+        // Lower distance = better match
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestMatch = user;
+        }
+      } catch (error) {
+        continue;
+      }
+    }
+
+    // If distance > threshold, face is NOT recognized
+    if (!bestMatch || bestDistance > this.FACE_DISTANCE_THRESHOLD) {
+      throw new UnauthorizedException(
+        `Wajah tidak dikenali. Pastikan wajah Anda sudah terdaftar dan disetujui.`,
+      );
+    }
+
+    // Get schedule info
+    const schedule = bestMatch.department?.workSchedules?.[0];
+
+    // Convert distance to similarity percentage for display
+    const similarity = Math.max(0, 1 - bestDistance);
+
+    return {
+      verified: true,
+      userId: bestMatch.id,
+      userName: bestMatch.name,
+      similarity,
+      distance: bestDistance,
+      departmentName: bestMatch.department?.name || null,
+      hasSchedule: !!schedule,
+      checkInTime: schedule?.checkInTime || null,
+      checkOutTime: schedule?.checkOutTime || null,
+    };
+  }
+
+  /**
+   * Get user's work schedule info
+   */
+  async getUserSchedule(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        department: {
+          include: {
+            workSchedules: {
+              where: { isActive: true },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.department) {
+      return {
+        hasSchedule: false,
+        message: 'User has no department assigned',
+      };
+    }
+
+    const schedule = user.department.workSchedules?.[0];
+    if (!schedule) {
+      return {
+        hasSchedule: false,
+        message: 'No work schedule for this department',
+      };
+    }
+
+    return {
+      hasSchedule: true,
+      checkInTime: schedule.checkInTime,
+      checkOutTime: schedule.checkOutTime,
+      departmentName: user.department.name,
+    };
+  }
+
+  /**
+   * Delete attendance record by ID (Admin only)
+   */
+  async delete(id: string) {
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id },
+    });
+
+    if (!attendance) {
+      throw new NotFoundException('Attendance record not found');
+    }
+
+    await this.prisma.attendance.delete({
+      where: { id },
+    });
+
+    return { message: 'Attendance record deleted successfully' };
+  }
+
+  /**
+   * Calculate Euclidean Distance between two face embeddings
+   * dlib's face_recognition uses Euclidean Distance, NOT Cosine Similarity!
+   * Lower distance = more similar faces
+   * Threshold: 0.6 (faces with distance < 0.6 are considered same person)
+   */
+  private calculateEuclideanDistance(embedding1: number[], embedding2: number[]): number {
+    if (embedding1.length !== embedding2.length) {
       throw new BadRequestException('Face embedding dimensions do not match');
     }
 
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < vecA.length; i++) {
-      dotProduct += vecA[i] * vecB[i];
-      normA += vecA[i] * vecA[i];
-      normB += vecB[i] * vecB[i];
+    let sum = 0;
+    for (let i = 0; i < embedding1.length; i++) {
+      const diff = embedding1[i] - embedding2[i];
+      sum += diff * diff;
     }
 
-    normA = Math.sqrt(normA);
-    normB = Math.sqrt(normB);
+    return Math.sqrt(sum);
+  }
 
-    if (normA === 0 || normB === 0) {
-      return 0;
+  /**
+   * Get all embeddings for device sync
+   * Returns all approved users with their face embeddings (supports multiple embeddings)
+   * Used by Android app for on-device face recognition
+   */
+  async syncEmbeddings() {
+    const approvedUsers = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { faceEmbedding: { not: null } },
+          { faceEmbeddings: { not: null } },
+        ],
+        faceRegistration: {
+          status: 'APPROVED',
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        faceEmbedding: true,
+        faceEmbeddings: true,  // Include multiple embeddings
+        updatedAt: true,
+      },
+    });
+
+    console.log(`[Sync Embeddings] Found ${approvedUsers.length} approved users`);
+
+    // Transform data for Android app
+    const embeddings = approvedUsers.map(user => {
+      let embeddingsList: number[][] = [];
+
+      // Prefer multiple embeddings if available
+      if (user.faceEmbeddings) {
+        try {
+          embeddingsList = JSON.parse(user.faceEmbeddings);
+          console.log(`[Sync Embeddings] User ${user.name}: ${embeddingsList.length} embeddings (multi)`);
+        } catch (e) {
+          console.log(`[Sync Embeddings] Error parsing faceEmbeddings for user ${user.name}`);
+        }
+      }
+
+      // Fallback to single embedding if multiple not available
+      if (embeddingsList.length === 0 && user.faceEmbedding) {
+        try {
+          const singleEmb = JSON.parse(user.faceEmbedding);
+          embeddingsList = [singleEmb];
+          console.log(`[Sync Embeddings] User ${user.name}: 1 embedding (single/legacy)`);
+        } catch (e) {
+          console.log(`[Sync Embeddings] Error parsing faceEmbedding for user ${user.name}`);
+        }
+      }
+
+      return {
+        odId: user.id,  // Using user.id as unique identifier
+        name: user.name,
+        embedding: embeddingsList[0] || [],  // First embedding for backward compatibility
+        embeddings: embeddingsList,  // All embeddings for multi-match
+        embeddingsCount: embeddingsList.length,
+        updatedAt: user.updatedAt.getTime(),
+      };
+    });
+
+    return {
+      count: embeddings.length,
+      embeddings: embeddings,
+      syncTimestamp: Date.now(),
+      supportsMultipleEmbeddings: true,
+    };
+  }
+
+  /**
+   * Create attendance from device-verified face
+   * Called when Android app verifies face on-device using MobileFaceNet
+   * and sends the matched userId to backend
+   *
+   * NOTE: This trusts the device's face verification
+   * Security relies on:
+   * 1. App signing/verification
+   * 2. MobileFaceNet's accuracy (99.55%)
+   */
+  async createAttendanceFromDevice(dto: VerifyDeviceDto) {
+    // Find user by ID (odId in DTO = user.id in DB)
+    const user = await this.prisma.user.findUnique({
+      where: { id: dto.odId },
+      include: {
+        faceRegistration: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User not found: ${dto.odId}`);
     }
 
-    return dotProduct / (normA * normB);
+    if (!user.isActive) {
+      throw new UnauthorizedException('Your account is inactive. Please contact administrator.');
+    }
+
+    if (!user.faceRegistration || user.faceRegistration.status !== 'APPROVED') {
+      throw new UnauthorizedException('Face registration not approved.');
+    }
+
+    console.log(`[Device Verify] User: ${user.name}, Type: ${dto.type}, Distance: ${dto.distance?.toFixed(4) || 'N/A'}`);
+
+    // Create attendance record (trusting device verification)
+    const attendance = await this.create(user.id, {
+      type: dto.type,
+      similarity: dto.similarity || (dto.distance ? Math.max(0, 1 - dto.distance) : null),
+    });
+
+    return {
+      ...attendance,
+      matchedUser: {
+        id: user.id,
+        name: user.name,
+        position: user.position,
+      },
+      verifiedOnDevice: true,
+    };
   }
 
-  private calculateDistance(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ): number {
-    const R = 6371e3;
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c;
-  }
 }

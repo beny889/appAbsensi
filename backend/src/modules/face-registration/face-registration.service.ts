@@ -5,6 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { FaceRecognitionMlService } from './face-recognition-ml.service';
 import {
   SubmitFaceRegistrationDto,
   ApproveRegistrationDto,
@@ -15,42 +16,113 @@ import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class FaceRegistrationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private faceRecognitionMl: FaceRecognitionMlService,
+  ) {}
 
   /**
    * Submit new face registration (public endpoint)
+   * Supports both single embedding (legacy) and multiple embeddings (new)
    */
   async submitRegistration(dto: SubmitFaceRegistrationDto) {
-    let faceEmbedding: string;
+    let faceEmbedding: string | null = null;
+    let faceEmbeddings: string | null = null;
     let faceImageUrl: string | undefined;
 
-    // Handle face image base64 input
-    if (dto.faceImageBase64) {
-      // Generate placeholder embedding from base64 image
-      // TODO: Replace with actual face embedding extraction using ML library
-      faceEmbedding = this.generatePlaceholderEmbedding();
+    // Handle multiple embeddings from Android (embeddings + images sent together)
+    if (dto.faceEmbeddings && dto.faceEmbeddings.length > 0) {
+      // Parse and log each embedding for debugging
+      const parsedEmbeddings = dto.faceEmbeddings.map((e, index) => {
+        const parsed = JSON.parse(e);
+        console.log(`[Registration] Embedding ${index + 1}: ${parsed.length} dimensions`);
+        return parsed;
+      });
+      console.log(`[Registration] Total ${parsedEmbeddings.length} embeddings received`);
 
-      // Convert base64 to data URL for storage
+      faceEmbeddings = JSON.stringify(parsedEmbeddings);
+      faceEmbedding = dto.faceEmbeddings[0]; // First one for backward compatibility
+
+      // Use first image from faceImagesBase64 if available, otherwise use faceImageUrl
+      if (dto.faceImagesBase64 && dto.faceImagesBase64.length > 0) {
+        // Images might already have data:image prefix from Android
+        const firstImage = dto.faceImagesBase64[0];
+        faceImageUrl = firstImage.startsWith('data:image')
+          ? firstImage
+          : `data:image/jpeg;base64,${firstImage}`;
+      } else {
+        faceImageUrl = dto.faceImageUrl;
+      }
+    }
+    // Handle multiple face images without embeddings (server extracts embeddings)
+    else if (dto.faceImagesBase64 && dto.faceImagesBase64.length > 0) {
+      const embeddings: number[][] = [];
+
+      for (const imageBase64 of dto.faceImagesBase64) {
+        try {
+          // Remove data URL prefix if present
+          const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+          const embedding = await this.faceRecognitionMl.extractFaceEmbedding(cleanBase64);
+          embeddings.push(embedding);
+        } catch (error) {
+          throw new BadRequestException(
+            error.message || 'Failed to extract face embedding from one of the images',
+          );
+        }
+      }
+
+      // Store all embeddings as JSON array
+      faceEmbeddings = JSON.stringify(embeddings);
+
+      // Use first image as profile photo
+      const firstImage = dto.faceImagesBase64[0];
+      faceImageUrl = firstImage.startsWith('data:image')
+        ? firstImage
+        : `data:image/jpeg;base64,${firstImage}`;
+
+      // Also set single embedding for backward compatibility (use first one)
+      faceEmbedding = JSON.stringify(embeddings[0]);
+    }
+    // Handle single face image (legacy)
+    else if (dto.faceImageBase64) {
+      try {
+        const embedding = await this.faceRecognitionMl.extractFaceEmbedding(
+          dto.faceImageBase64,
+        );
+        faceEmbedding = JSON.stringify(embedding);
+        // Wrap single embedding in array for faceEmbeddings
+        faceEmbeddings = JSON.stringify([embedding]);
+      } catch (error) {
+        throw new BadRequestException(
+          error.message || 'Failed to extract face embedding from image',
+        );
+      }
       faceImageUrl = `data:image/jpeg;base64,${dto.faceImageBase64}`;
-    } else {
-      // Use provided embedding
-      faceEmbedding = dto.faceEmbedding!;
+    }
+    // Handle single embedding (legacy)
+    else if (dto.faceEmbedding) {
+      faceEmbedding = dto.faceEmbedding;
+      // Wrap single embedding in array for faceEmbeddings
+      faceEmbeddings = JSON.stringify([JSON.parse(dto.faceEmbedding)]);
       faceImageUrl = dto.faceImageUrl;
+    } else {
+      throw new BadRequestException('No face data provided');
     }
 
-    // Check for duplicate face
-    const isDuplicate = await this.checkDuplicateFace(faceEmbedding);
+    // Check for duplicate face (using first embedding)
+    const isDuplicate = await this.checkDuplicateFace(faceEmbedding!);
     if (isDuplicate) {
       throw new ConflictException(
         'This face is already registered. Please contact admin if you believe this is an error.',
       );
     }
 
-    // Create registration
+    // Create registration with both single and multiple embeddings
     const registration = await this.prisma.faceRegistration.create({
       data: {
         name: dto.name,
         faceEmbedding: faceEmbedding,
+        faceEmbeddings: faceEmbeddings,
         faceImageUrl: faceImageUrl,
         status: RegistrationStatus.PENDING,
       },
@@ -60,6 +132,7 @@ export class FaceRegistrationService {
       id: registration.id,
       message: 'Registration submitted successfully. Please wait for admin approval.',
       status: registration.status,
+      embeddingsCount: faceEmbeddings ? JSON.parse(faceEmbeddings).length : 1,
     };
   }
 
@@ -97,7 +170,6 @@ export class FaceRegistrationService {
         user: {
           select: {
             id: true,
-            email: true,
             name: true,
             role: true,
           },
@@ -129,54 +201,64 @@ export class FaceRegistrationService {
       );
     }
 
-    // Auto-generate email if not provided
-    let email = dto.email;
-    if (!email) {
-      // Generate email from name: "John Doe" -> "john.doe@absensi.local"
-      const namePart = registration.name
-        .toLowerCase()
-        .replace(/\s+/g, '.')
-        .replace(/[^a-z0-9.]/g, '');
-      email = `${namePart}@absensi.local`;
+    const role = dto.role || Role.EMPLOYEE;
+    let email: string | undefined = dto.email;
+    let hashedPassword: string | undefined;
 
-      // Ensure email is unique by adding number suffix if needed
-      let counter = 1;
-      let tempEmail = email;
-      while (await this.prisma.user.findUnique({ where: { email: tempEmail } })) {
-        tempEmail = `${namePart}${counter}@absensi.local`;
-        counter++;
+    // Only set email/password for ADMIN role
+    // EMPLOYEE users don't need email/password (they use face recognition only)
+    if (role === Role.ADMIN) {
+      // Auto-generate email if not provided for ADMIN
+      if (!email) {
+        // Generate email from name: "John Doe" -> "john.doe@absensi.local"
+        const namePart = registration.name
+          .toLowerCase()
+          .replace(/\s+/g, '.')
+          .replace(/[^a-z0-9.]/g, '');
+        email = `${namePart}@absensi.local`;
+
+        // Ensure email is unique by adding number suffix if needed
+        let counter = 1;
+        let tempEmail = email;
+        while (await this.prisma.user.findUnique({ where: { email: tempEmail } })) {
+          tempEmail = `${namePart}${counter}@absensi.local`;
+          counter++;
+        }
+        email = tempEmail;
       }
-      email = tempEmail;
+
+      // Check if email already exists
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (existingUser) {
+        throw new ConflictException('Email is already in use');
+      }
+
+      // Auto-generate password if not provided (random 12-character password)
+      const password = dto.password || this.generateRandomPassword(12);
+
+      // Hash password
+      hashedPassword = await bcrypt.hash(password, 10);
     }
-
-    // Check if email already exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUser) {
-      throw new ConflictException('Email is already in use');
-    }
-
-    // Auto-generate password if not provided (random 12-character password)
-    const password = dto.password || this.generateRandomPassword(12);
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user and update registration in a transaction
     const result = await this.prisma.$transaction(async (tx) => {
       // Create user with face data
+      // For EMPLOYEE: email and password are NULL (face recognition only)
+      // For ADMIN: email and password are required
       const user = await tx.user.create({
         data: {
           email: email,
           password: hashedPassword,
           name: registration.name,
-          role: dto.role || Role.EMPLOYEE,
+          role: role,
           position: dto.position,
-          department: dto.department,
+          departmentId: dto.departmentId,
           phone: dto.phone,
           faceEmbedding: registration.faceEmbedding,
+          faceEmbeddings: registration.faceEmbeddings, // Copy multiple embeddings
           faceImageUrl: registration.faceImageUrl,
           isActive: true,
         },

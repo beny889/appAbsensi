@@ -1,207 +1,228 @@
 # Absensi Backend API
 
-Backend API untuk sistem absensi dengan face recognition dan GPS detection.
+Backend API untuk sistem absensi dengan **on-device face recognition** (MobileFaceNet).
 
 ## Tech Stack
 
-- **Framework**: NestJS (TypeScript)
-- **Database**: PostgreSQL
-- **ORM**: Prisma
-- **Authentication**: JWT + Passport
-- **Validation**: class-validator
+| Component | Technology |
+|-----------|------------|
+| Framework | NestJS |
+| Language | TypeScript |
+| ORM | Prisma |
+| Database | PostgreSQL |
+| Auth | JWT + Passport |
+| Body Parser | 50MB limit (untuk base64 images) |
 
 ## Features
 
-- ✅ JWT Authentication
-- ✅ Role-based Access Control (Admin & Employee)
-- ✅ Employee Self-Registration (NEW!)
-- ✅ Face Registration Approval Workflow (NEW!)
-- ✅ Face Recognition Integration (Embedding Storage)
-- ✅ GPS Location Validation
-- ✅ Check-in/Check-out Management
-- ✅ Attendance Reports & Analytics
-- ✅ Employee Management
+- Passwordless authentication (karyawan pakai wajah saja)
+- Multi-pose face registration (5 foto)
+- Face embedding storage (192-dim vectors)
+- Embedding sync API untuk Android
+- Late/early detection berdasarkan jadwal
+- Department & work schedule management
+- Admin approval workflow
+- Attendance reports (daily/monthly)
 
-## Prerequisites
-
-- Node.js 18+
-- PostgreSQL 14+
-- npm atau yarn
-
-## Installation
+## Quick Start
 
 ```bash
 # Install dependencies
 npm install
 
-# Setup environment variables
+# Setup environment
 cp .env.example .env
-# Edit .env dengan konfigurasi database Anda
+# Edit .env dengan konfigurasi database
 
 # Generate Prisma Client
-npm run prisma:generate
+npx prisma generate
 
-# Run database migrations
-npm run prisma:migrate
+# Run migrations
+npx prisma migrate deploy
 
-# (Optional) Run seed data
-npm run prisma:seed
-```
-
-## Environment Variables
-
-```env
-# Database
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/absensi_db?schema=public"
-
-# Application
-PORT=3001
-NODE_ENV=development
-
-# JWT
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-JWT_EXPIRATION=7d
-
-# File Upload
-MAX_FILE_SIZE=5242880
-UPLOAD_PATH=./uploads
-
-# CORS
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
-```
-
-## Running the Application
-
-```bash
-# Development
-npm run start:dev
-
-# Production build
-npm run build
-npm run start:prod
+# Start development
+npm run start:dev    # Port 3001
 
 # Prisma Studio (Database GUI)
-npm run prisma:studio
+npx prisma studio    # Port 5555
+```
+
+## Environment Variables (.env)
+
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/absensi_db"
+JWT_SECRET="your-secret-key"
+PORT=3001
 ```
 
 ## API Endpoints
 
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login
-- `GET /api/auth/me` - Get current user profile
+### Public (No Auth Required)
+```
+POST /api/face-registration/submit    # Submit face registration
+GET  /api/attendance/sync-embeddings  # Sync embeddings ke Android
+POST /api/attendance/verify-device    # Device-verified attendance
+POST /api/attendance/verify-anonymous # Server-verified attendance
+```
 
-### Employees
-- `GET /api/employees` - Get all employees (Admin only)
-- `GET /api/employees/:id` - Get employee by ID
-- `PUT /api/employees/:id` - Update employee
-- `DELETE /api/employees/:id` - Delete employee (Admin only)
-- `POST /api/employees/face-register` - Register face embedding (deprecated - use face-registration endpoints)
-- `GET /api/employees/face-status/:id` - Check if face registered
+### Admin Only
+```
+GET    /api/face-registration/pending
+POST   /api/face-registration/:id/approve
+POST   /api/face-registration/:id/reject
+DELETE /api/face-registration/:id
 
-### Face Registration (NEW!)
-- `POST /api/face-registration/submit` - Submit face registration (Public - No auth)
-- `GET /api/face-registration/pending` - Get pending registrations (Admin only)
-- `GET /api/face-registration/:id` - Get registration by ID (Admin only)
-- `POST /api/face-registration/:id/approve` - Approve registration (Admin only)
-- `POST /api/face-registration/:id/reject` - Reject registration (Admin only)
-- `DELETE /api/face-registration/:id` - Delete registration (Admin only)
-- `GET /api/face-registration/stats/overview` - Get statistics (Admin only)
+GET    /api/employees
+PUT    /api/employees/:id
+DELETE /api/employees/:id
 
-### Attendance
-- `POST /api/attendance` - Create attendance record
-- `POST /api/attendance/verify` - Verify face & location, then create attendance
-- `GET /api/attendance/my` - Get my attendance history
-- `GET /api/attendance/today` - Get today's attendance
-- `GET /api/attendance/user/:userId` - Get user attendance (Admin only)
-- `GET /api/attendance/all` - Get all attendances (Admin only)
+GET    /api/departments
+POST   /api/departments
+PUT    /api/departments/:id
+DELETE /api/departments/:id
 
-### Reports
-- `GET /api/reports/daily` - Daily summary (Admin only)
-- `GET /api/reports/monthly` - Monthly summary (Admin only)
-- `GET /api/reports/user/monthly` - My monthly report
-- `GET /api/reports/user/:userId/monthly` - User monthly report (Admin only)
-- `GET /api/reports/dashboard` - Dashboard statistics (Admin only)
+GET    /api/work-schedules
+POST   /api/work-schedules
+PUT    /api/work-schedules/:id
+
+GET    /api/attendance/today-all
+DELETE /api/attendance/:id
+
+GET    /api/reports/daily
+GET    /api/reports/monthly
+GET    /api/reports/dashboard
+```
 
 ## Database Schema
 
 ### User
-- id, email, password, name, role
-- phone, position, department
-- faceEmbedding, faceImageUrl
-- isActive, createdAt, updatedAt
+```prisma
+model User {
+  id              String    @id @default(cuid())
+  email           String?   @unique  // NULL for employees
+  password        String?             // NULL for employees
+  name            String
+  role            Role      @default(EMPLOYEE)
+  departmentId    String?
+  faceEmbedding   String?   @db.Text  // Single embedding (legacy)
+  faceEmbeddings  String?   @db.Text  // Multiple embeddings (5 poses)
+  faceImageUrl    String?   @db.Text
+  isActive        Boolean   @default(true)
+}
+```
+
+### FaceRegistration
+```prisma
+model FaceRegistration {
+  id              String    @id @default(cuid())
+  name            String
+  faceEmbedding   String    @db.Text  // First embedding
+  faceEmbeddings  String?   @db.Text  // All 5 embeddings (JSON array)
+  faceImageUrl    String?   @db.Text  // First photo (base64 data URL)
+  status          RegistrationStatus @default(PENDING)
+  userId          String?   // Set after approval
+}
+```
 
 ### Attendance
-- id, userId, type (CHECK_IN/CHECK_OUT)
-- latitude, longitude, locationId
-- faceImageUrl, similarity
-- notes, isVerified, timestamp
+```prisma
+model Attendance {
+  id              String    @id @default(cuid())
+  userId          String
+  type            AttendanceType  // CHECK_IN | CHECK_OUT
+  timestamp       DateTime  @default(now())
+  isLate          Boolean?
+  lateMinutes     Int?
+  isEarlyCheckout Boolean?
+  earlyMinutes    Int?
+  scheduledTime   String?
+}
+```
 
-### Location
-- id, name, address
-- latitude, longitude, radius
-- isActive
+### WorkSchedule
+```prisma
+model WorkSchedule {
+  id            String    @id @default(cuid())
+  departmentId  String    @unique
+  checkInTime   String    // "HH:MM"
+  checkOutTime  String    // "HH:MM"
+  isActive      Boolean   @default(true)
+}
+```
 
-### Settings
-- id, key, value, description
+## Embedding Sync API
 
-### FaceRegistration (NEW!)
-- id, name
-- faceEmbedding (128-dimensional vector as JSON)
-- faceImageUrl (data URL or public URL)
-- status (PENDING/APPROVED/REJECTED)
-- rejectionReason, reviewedAt, reviewedBy
-- userId (foreign key, created on approval)
+Android sync embeddings untuk on-device matching:
 
-## Face Recognition Flow
+```
+GET /api/attendance/sync-embeddings
 
-### 1. Employee Self-Registration (NEW!)
-1. **Mobile App** (No login required)
-   - User opens app
-   - Taps "📸 Rekam Data Wajah" button
-   - Camera opens with ML Kit face detection
-   - Face detected → Name input dialog
-   - User enters name
+Response:
+{
+  "count": 5,
+  "embeddings": [
+    {
+      "odId": "user-id",
+      "name": "User Name",
+      "embedding": [192 floats],     // First embedding (legacy)
+      "embeddings": [[192], [192], ...], // All 5 embeddings
+      "embeddingsCount": 5
+    }
+  ],
+  "supportsMultipleEmbeddings": true
+}
+```
 
-2. **Submit to Backend**
-   - POST /api/face-registration/submit
-   - Body: { name: string, faceImageBase64: string }
-   - Backend generates 128-dim placeholder embedding
-   - Stores with status: PENDING
-   - Checks for duplicate faces (cosine similarity)
+## Face Registration Submit
 
-3. **Admin Approval**
-   - Admin views pending registrations in web panel
-   - Reviews face image and name
-   - Approves or rejects
+Android submit 5 embeddings + 5 images:
 
-4. **On Approval**
-   - Backend creates User account automatically
-   - Copies face data to User table
-   - Status changed to APPROVED
-   - Employee can now login
+```
+POST /api/face-registration/submit
 
-### 2. Check-in/Check-out
-   - Android app capture foto + GPS
-   - Send base64 image to backend
-   - Backend generates embedding from image
-   - Compare dengan stored embedding (cosine similarity >80%)
-   - Validate GPS dalam radius (Haversine distance)
-   - Save attendance record
+Body:
+{
+  "name": "User Name",
+  "faceEmbeddings": ["[192 floats]", ...],  // 5 embedding strings
+  "faceImagesBase64": ["base64...", ...]    // 5 images (optional)
+}
 
-## GPS Validation
+Response:
+{
+  "id": "registration-id",
+  "message": "Registration submitted successfully",
+  "status": "PENDING",
+  "embeddingsCount": 5
+}
+```
 
-- Admin set lokasi kantor (lat, lng, radius)
-- Backend validate apakah user dalam radius
-- Menggunakan Haversine formula untuk calculate distance
+## Body Size Configuration
+
+Backend dikonfigurasi untuk handle large payloads (5 base64 images):
+
+```typescript
+// main.ts
+import { json, urlencoded } from 'express';
+
+app.use(json({ limit: '50mb' }));
+app.use(urlencoded({ extended: true, limit: '50mb' }));
+```
 
 ## Security
 
-- JWT token authentication
-- Role-based access control
-- Password hashing dengan bcrypt
-- Input validation
-- CORS configuration
+### Passwordless for Employees
+- Karyawan: Face recognition only (email/password NULL)
+- Admin: Email/password untuk web panel
+
+### Face Embedding Security
+- Disimpan sebagai vektor numerik (bukan foto)
+- Database field: TEXT dengan JSON array
+- Matching menggunakan cosine similarity (threshold 80%)
+
+### JWT Authentication
+- Token-based untuk API access
+- Role-based access control (ADMIN/EMPLOYEE)
+- Protected routes dengan guards
 
 ## Development
 
@@ -212,21 +233,29 @@ npm run format
 # Lint
 npm run lint
 
-# Run tests
-npm run test
+# Build
+npm run build
 
-# Test coverage
-npm run test:cov
+# Production
+npm run start:prod
 ```
 
-## Deployment
+## Troubleshooting
 
-1. Setup PostgreSQL database
-2. Configure environment variables
-3. Run migrations
-4. Build application
-5. Deploy to VPS/Cloud
+### Request entity too large
+- Body limit sudah 50MB di main.ts
+- Cek network/proxy jika masih error
 
-## License
+### Embedding dimensions mismatch
+- Model lama: 128 dimensions
+- Model baru (MobileFaceNet): 192 dimensions
+- User harus re-register dengan model terbaru
 
-Private - Internal Use Only
+### Face not recognized
+- Cek embeddings count di database
+- Verify similarity threshold (default 80%)
+- Re-register dengan pencahayaan lebih baik
+
+---
+
+**Last Updated**: November 26, 2025

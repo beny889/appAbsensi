@@ -33,7 +33,7 @@ export class AuthService {
         name: dto.name,
         phone: dto.phone,
         position: dto.position,
-        department: dto.department,
+        departmentId: dto.department,
         role: dto.role || 'EMPLOYEE',
       },
       select: {
@@ -43,6 +43,7 @@ export class AuthService {
         role: true,
         phone: true,
         position: true,
+        departmentId: true,
         department: true,
         createdAt: true,
       },
@@ -85,7 +86,7 @@ export class AuthService {
         role: user.role,
         phone: user.phone,
         position: user.position,
-        department: user.department,
+        departmentId: user.departmentId,
       },
       token,
     };
@@ -96,11 +97,12 @@ export class AuthService {
       where: { id: userId },
       select: {
         id: true,
-        email: true,
+        email: true, // Can be null for EMPLOYEE
         name: true,
         role: true,
         phone: true,
         position: true,
+        departmentId: true,
         department: true,
         isActive: true,
       },

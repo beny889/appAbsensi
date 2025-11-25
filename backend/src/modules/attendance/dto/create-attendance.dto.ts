@@ -12,18 +12,6 @@ export class CreateAttendanceDto {
   @IsNotEmpty()
   type: AttendanceType;
 
-  @IsNumber()
-  @IsNotEmpty()
-  latitude: number;
-
-  @IsNumber()
-  @IsNotEmpty()
-  longitude: number;
-
-  @IsString()
-  @IsOptional()
-  locationId?: string;
-
   @IsString()
   @IsOptional()
   faceImageUrl?: string;

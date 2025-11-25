@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateEmployeeDto, RegisterFaceDto } from './dto';
 import { Role } from '@prisma/client';
@@ -12,10 +12,10 @@ export class EmployeeService {
       where: { role: Role.EMPLOYEE },
       select: {
         id: true,
-        email: true,
         name: true,
         phone: true,
         position: true,
+        departmentId: true,
         department: true,
         isActive: true,
         createdAt: true,
@@ -31,10 +31,10 @@ export class EmployeeService {
       where: { id },
       select: {
         id: true,
-        email: true,
         name: true,
         phone: true,
         position: true,
+        departmentId: true,
         department: true,
         role: true,
         isActive: true,
@@ -69,10 +69,10 @@ export class EmployeeService {
       data: dto,
       select: {
         id: true,
-        email: true,
         name: true,
         phone: true,
         position: true,
+        departmentId: true,
         department: true,
         isActive: true,
         updatedAt: true,
@@ -86,12 +86,25 @@ export class EmployeeService {
     });
 
     if (!employee) {
-      throw new NotFoundException('Employee not found');
+      throw new NotFoundException('Karyawan tidak ditemukan');
     }
 
-    return this.prisma.user.delete({
+    // Check if employee has attendance records
+    const attendanceCount = await this.prisma.attendance.count({
+      where: { userId: id },
+    });
+
+    if (attendanceCount > 0) {
+      throw new BadRequestException(
+        `Karyawan tidak dapat dihapus karena memiliki ${attendanceCount} record absensi`
+      );
+    }
+
+    await this.prisma.user.delete({
       where: { id },
     });
+
+    return { message: 'Karyawan berhasil dihapus' };
   }
 
   async registerFace(userId: string, dto: RegisterFaceDto) {
@@ -111,7 +124,6 @@ export class EmployeeService {
       },
       select: {
         id: true,
-        email: true,
         name: true,
         faceImageUrl: true,
         updatedAt: true,

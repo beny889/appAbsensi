@@ -130,15 +130,6 @@ export class ReportsService {
           lte: endOfMonth,
         },
       },
-      include: {
-        location: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-          },
-        },
-      },
       orderBy: { timestamp: 'asc' },
     });
 

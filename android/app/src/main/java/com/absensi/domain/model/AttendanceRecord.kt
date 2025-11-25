@@ -6,5 +6,6 @@ data class AttendanceRecord(
     val userPosition: String,
     val checkInTime: String,
     val checkOutTime: String,
-    val date: String
+    val date: String,
+    val faceImageUrl: String? = null
 )

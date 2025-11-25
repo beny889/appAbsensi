@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -7,16 +7,60 @@ import {
   Button,
   Grid,
   CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
 } from '@mui/material';
 import { reportsApi } from '@/api';
-import { DailyReport } from '@/types';
+import { DailyReport, Attendance } from '@/types';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+
+interface GroupedAttendance {
+  userId: string;
+  userName: string;
+  departmentName: string;
+  checkIn: Attendance | null;
+  checkOut: Attendance | null;
+}
 
 export default function DailyReports() {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [report, setReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Group attendances by user (1 row per user with masuk & pulang combined)
+  const groupedAttendances = useMemo((): GroupedAttendance[] => {
+    if (!report?.attendances) return [];
+
+    const userMap = new Map<string, GroupedAttendance>();
+
+    report.attendances.forEach((attendance) => {
+      const userId = attendance.userId;
+      if (!userMap.has(userId)) {
+        userMap.set(userId, {
+          userId,
+          userName: attendance.user?.name || '-',
+          departmentName: attendance.user?.department?.name || '-',
+          checkIn: null,
+          checkOut: null,
+        });
+      }
+
+      const record = userMap.get(userId)!;
+      if (attendance.type === 'CHECK_IN') {
+        record.checkIn = attendance;
+      } else {
+        record.checkOut = attendance;
+      }
+    });
+
+    return Array.from(userMap.values());
+  }, [report?.attendances]);
 
   const loadReport = async () => {
     if (!date) {
@@ -88,7 +132,7 @@ export default function DailyReports() {
             <Grid item xs={12} sm={6} md={3}>
               <Paper sx={{ p: 2 }}>
                 <Typography variant="body2" color="textSecondary">
-                  Check-In
+                  Masuk
                 </Typography>
                 <Typography variant="h4" fontWeight="bold" color="primary">
                   {report.totalCheckIns}
@@ -98,7 +142,7 @@ export default function DailyReports() {
             <Grid item xs={12} sm={6} md={3}>
               <Paper sx={{ p: 2 }}>
                 <Typography variant="body2" color="textSecondary">
-                  Check-Out
+                  Pulang
                 </Typography>
                 <Typography variant="h4" fontWeight="bold" color="secondary">
                   {report.totalCheckOuts}
@@ -121,9 +165,64 @@ export default function DailyReports() {
             <Typography variant="h6" gutterBottom>
               Detail Absensi - {format(new Date(report.date), 'dd MMMM yyyy')}
             </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Total {report.attendances.length} record absensi
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+              Total {groupedAttendances.length} karyawan hadir
             </Typography>
+
+            {groupedAttendances.length > 0 ? (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Nama</TableCell>
+                      <TableCell>Departemen</TableCell>
+                      <TableCell>Masuk</TableCell>
+                      <TableCell>Pulang</TableCell>
+                      <TableCell>Status</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {groupedAttendances.map((record) => (
+                      <TableRow key={record.userId}>
+                        <TableCell>{record.userName}</TableCell>
+                        <TableCell>{record.departmentName}</TableCell>
+                        <TableCell>
+                          {record.checkIn ? format(new Date(record.checkIn.timestamp), 'HH:mm') : '-'}
+                        </TableCell>
+                        <TableCell>
+                          {record.checkOut ? format(new Date(record.checkOut.timestamp), 'HH:mm') : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                            {record.checkIn?.isLate && (
+                              <Chip
+                                label={`Terlambat ${record.checkIn.lateMinutes} menit`}
+                                color="error"
+                                size="small"
+                              />
+                            )}
+                            {record.checkOut?.isEarlyCheckout && (
+                              <Chip
+                                label={`Pulang Awal ${record.checkOut.earlyMinutes} menit`}
+                                color="warning"
+                                size="small"
+                              />
+                            )}
+                            {!record.checkIn?.isLate && !record.checkOut?.isEarlyCheckout && (
+                              <Chip label="Tepat Waktu" color="success" size="small" />
+                            )}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Typography variant="body2" color="textSecondary" sx={{ textAlign: 'center', py: 4 }}>
+                Tidak ada data absensi pada tanggal ini
+              </Typography>
+            )}
           </Paper>
         </>
       )}

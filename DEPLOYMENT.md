@@ -19,15 +19,189 @@ Panduan lengkap untuk deployment sistem absensi ke production.
 
 **Backend Server (VPS/Cloud)**:
 - Ubuntu 20.04+ atau CentOS 7+
+- **Python 3.11+** ⚡ (NEW! for ML Service)
 - Node.js 18+
 - PostgreSQL 14+
 - Nginx
 - PM2 (process manager)
-- Minimum 2GB RAM, 20GB Storage
+- Minimum 2GB RAM, 20GB Storage (recommend 4GB for ML service)
 
 **Domain & SSL**:
 - Domain name (contoh: api.absensi.com, admin.absensi.com)
 - SSL certificate (Let's Encrypt recommended)
+
+---
+
+## Python ML Service Deployment ⚡ (DEPLOY FIRST!)
+
+**IMPORTANT**: The Python ML Service must be deployed BEFORE the backend, as the backend depends on it for face recognition.
+
+### 1. Install Python and Dependencies
+
+```bash
+# SSH ke server
+ssh root@YOUR_SERVER_IP
+
+# Install Python 3.11+
+sudo apt update
+sudo apt install -y python3.11 python3.11-venv python3-pip
+
+# Verify installation
+python3.11 --version
+```
+
+### 2. Deploy ML Service Code
+
+```bash
+# Create app directory
+sudo mkdir -p /var/www/face-recognition-service
+cd /var/www/face-recognition-service
+
+# Clone atau upload kode
+# Option 1: Git (dari subfolder)
+git clone YOUR_REPO_URL temp
+mv temp/face-recognition-service/* .
+rm -rf temp
+
+# Option 2: Manual upload via SCP
+# scp -r face-recognition-service/* user@server:/var/www/face-recognition-service/
+
+# Create virtual environment
+python3.11 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+# This installs: Flask, face-recognition, dlib-bin, Pillow, NumPy
+```
+
+### 3. Configure Environment
+
+```bash
+# Create .env file
+nano .env
+```
+
+Add configuration:
+```bash
+PORT=5000
+DEBUG=False
+```
+
+### 4. Test ML Service
+
+```bash
+# Test run
+python app.py
+
+# Should see:
+# ================================================
+#    Face Recognition Service
+#    Running on http://localhost:5000
+# ================================================
+
+# In another terminal, test health endpoint
+curl http://localhost:5000/health
+
+# Should return:
+# {"status":"ok","service":"Face Recognition Service","version":"1.0.0"}
+
+# Stop test run (Ctrl+C)
+```
+
+### 5. Setup systemd Service
+
+```bash
+# Create systemd service file
+sudo nano /etc/systemd/system/face-recognition.service
+```
+
+Add configuration:
+```ini
+[Unit]
+Description=Face Recognition ML Service
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/face-recognition-service
+Environment="PATH=/var/www/face-recognition-service/venv/bin"
+ExecStart=/var/www/face-recognition-service/venv/bin/python app.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+# Set proper permissions
+sudo chown -R www-data:www-data /var/www/face-recognition-service
+
+# Reload systemd
+sudo systemctl daemon-reload
+
+# Start service
+sudo systemctl start face-recognition
+
+# Enable on boot
+sudo systemctl enable face-recognition
+
+# Check status
+sudo systemctl status face-recognition
+```
+
+### 6. Configure Nginx (Optional - Internal Use Only)
+
+**Note**: The ML service is typically used internally by the backend only, so you may NOT need to expose it publicly. If you want to expose it:
+
+```bash
+sudo nano /etc/nginx/sites-available/face-recognition
+```
+
+```nginx
+server {
+    listen 80;
+    server_name ml.absensi.com;  # Optional, only if exposing publicly
+
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+
+        # Increase timeout for ML processing
+        proxy_read_timeout 60s;
+        proxy_connect_timeout 60s;
+    }
+}
+```
+
+```bash
+# Enable site (if needed)
+sudo ln -s /etc/nginx/sites-available/face-recognition /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+### 7. Verify ML Service
+
+```bash
+# Check service status
+sudo systemctl status face-recognition
+
+# View logs
+sudo journalctl -u face-recognition -f
+
+# Test health endpoint
+curl http://localhost:5000/health
+
+# Test embedding extraction (with sample base64 image)
+curl -X POST http://localhost:5000/extract-embedding \
+  -H "Content-Type: application/json" \
+  -d '{"image": "YOUR_BASE64_IMAGE_HERE"}'
+```
 
 ---
 
@@ -101,6 +275,9 @@ NODE_ENV=production
 JWT_SECRET=GENERATE_RANDOM_SECURE_KEY_HERE
 JWT_EXPIRATION=7d
 ALLOWED_ORIGINS=https://admin.absensi.com
+
+# Python ML Service ⚡ (NEW!)
+FACE_RECOGNITION_SERVICE_URL=http://localhost:5000
 ```
 
 ### 4. Run Database Migrations
@@ -473,6 +650,35 @@ npm run prisma:migrate
 
 ## Troubleshooting
 
+### Python ML Service Issues ⚡ (NEW!)
+
+```bash
+# Service not running
+sudo systemctl status face-recognition
+
+# View detailed logs
+sudo journalctl -u face-recognition -n 50 --no-pager
+
+# Common issues:
+# 1. Port 5000 already in use
+sudo netstat -tlnp | grep 5000
+
+# 2. dlib installation failed
+# Solution: Use dlib-bin instead
+source /var/www/face-recognition-service/venv/bin/activate
+pip uninstall dlib
+pip install dlib-bin
+
+# 3. Permission issues
+sudo chown -R www-data:www-data /var/www/face-recognition-service
+
+# 4. Python version too old
+python3.11 --version  # Must be 3.11+
+
+# Restart service
+sudo systemctl restart face-recognition
+```
+
 ### Backend won't start
 ```bash
 # Check logs
@@ -535,6 +741,12 @@ sudo certbot certificates
 ## Quick Reference Commands
 
 ```bash
+# Python ML Service ⚡ (NEW!)
+sudo systemctl status face-recognition
+sudo systemctl restart face-recognition
+sudo journalctl -u face-recognition -f
+curl http://localhost:5000/health
+
 # Backend
 pm2 restart absensi-api
 pm2 logs absensi-api
@@ -560,4 +772,8 @@ sudo certbot certificates
 
 ---
 
-**Good luck with deployment! 🚀**
+**Good luck with deployment!**
+
+---
+
+**Last Updated**: November 25, 2025

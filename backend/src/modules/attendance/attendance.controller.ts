@@ -2,17 +2,19 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Query,
   UseGuards,
   Param,
 } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
-import { CreateAttendanceDto, VerifyFaceDto, VerifyAnonymousDto } from './dto';
+import { CreateAttendanceDto, VerifyFaceDto, VerifyAnonymousDto, VerifyDeviceDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { Role } from '@prisma/client';
 
 @Controller('attendance')
@@ -27,10 +29,57 @@ export class AttendanceController {
   async verifyAnonymous(@Body() dto: VerifyAnonymousDto) {
     return this.attendanceService.verifyFaceAnonymous(
       dto.faceEmbedding,
-      dto.latitude,
-      dto.longitude,
       dto.type,
     );
+  }
+
+  /**
+   * Verify face only WITHOUT creating attendance (NO authentication required)
+   * Used for early checkout confirmation flow - returns user + schedule info
+   */
+  @Post('verify-only')
+  async verifyFaceOnly(@Body('faceEmbedding') faceEmbedding: string) {
+    return this.attendanceService.verifyFaceOnly(faceEmbedding);
+  }
+
+  /**
+   * Get user's work schedule (NO authentication required)
+   * Used by Android app to show early checkout confirmation
+   */
+  @Get('schedule/:userId')
+  async getUserSchedule(@Param('userId') userId: string) {
+    return this.attendanceService.getUserSchedule(userId);
+  }
+
+  /**
+   * Sync embeddings for on-device face recognition (NO authentication required)
+   * Returns all approved user embeddings for Android app to download
+   * Used for MobileFaceNet on-device face verification
+   */
+  @Get('sync-embeddings')
+  async syncEmbeddings() {
+    return this.attendanceService.syncEmbeddings();
+  }
+
+  /**
+   * Create attendance from device-verified face (NO authentication required)
+   * Called when Android app verifies face on-device using MobileFaceNet
+   * and sends the matched userId to backend
+   */
+  @Post('verify-device')
+  async verifyDevice(@Body() dto: VerifyDeviceDto) {
+    return this.attendanceService.createAttendanceFromDevice(dto);
+  }
+
+  /**
+   * Get ALL today's attendance (NO authentication required)
+   * Returns list of all users who checked in/out today
+   * Used by Android app to show public attendance board
+   */
+  @Public()
+  @Get('today-all')
+  async getTodayAllAttendance() {
+    return this.attendanceService.getTodayAllAttendance();
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -41,9 +90,6 @@ export class AttendanceController {
     if (result.verified) {
       return this.attendanceService.create(user.id, {
         type: dto.type,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
-        locationId: result.locationId,
         similarity: result.similarity,
       });
     }
@@ -97,5 +143,12 @@ export class AttendanceController {
       startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined,
     );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Delete(':id')
+  @Roles(Role.ADMIN)
+  async deleteAttendance(@Param('id') id: string) {
+    return this.attendanceService.delete(id);
   }
 }

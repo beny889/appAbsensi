@@ -133,7 +133,7 @@ export default function Dashboard() {
               {stats?.monthlyTotalAttendances || 0}
             </Typography>
             <Typography variant="body2" color="textSecondary">
-              Total check-in bulan ini
+              Total absensi bulan ini
             </Typography>
           </Paper>
         </Grid>

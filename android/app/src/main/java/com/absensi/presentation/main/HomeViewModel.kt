@@ -12,6 +12,7 @@ import com.absensi.util.TokenManager
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.TimeZone
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -35,39 +36,31 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun loadTodayAttendance() {
-        val token = tokenManager.getToken()
-        if (token == null) {
-            Log.w(TAG, "No token found - user not logged in")
-            _todayAttendanceList.value = emptyList()
-            return
-        }
-
         _isLoading.value = true
         _errorMessage.value = null
 
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Fetching today's attendance from API...")
+                Log.d(TAG, "Fetching all today's attendance (public)...")
 
-                val result = attendanceRepository.getTodayAttendance(token)
+                // Use public endpoint - no token required
+                val result = attendanceRepository.getTodayAllAttendance()
 
                 result.fold(
                     onSuccess = { attendanceList ->
-                        Log.d(TAG, "✓ Fetched ${attendanceList.size} attendance records")
+                        Log.d(TAG, "✓ Fetched ${attendanceList.size} attendance records (grouped by user)")
 
-                        // Convert API response to domain model
+                        // Convert grouped API response to domain model
+                        // Response is already grouped by user with checkInTime and checkOutTime
                         val records = attendanceList.map { attendance ->
                             AttendanceRecord(
                                 id = attendance.id,
                                 userName = attendance.user?.name ?: "Unknown",
-                                userPosition = "", // Position not in attendance response
-                                checkInTime = if (attendance.type == "CHECK_IN") {
-                                    formatTime(attendance.timestamp)
-                                } else "",
-                                checkOutTime = if (attendance.type == "CHECK_OUT") {
-                                    formatTime(attendance.timestamp)
-                                } else "",
-                                date = formatDate(attendance.timestamp)
+                                userPosition = attendance.user?.department?.name ?: "", // Tampilkan departemen
+                                checkInTime = attendance.checkInTime?.let { formatTime(it) } ?: "",
+                                checkOutTime = attendance.checkOutTime?.let { formatTime(it) } ?: "",
+                                date = attendance.latestActivity?.let { formatDate(it) } ?: "",
+                                faceImageUrl = attendance.user?.faceImageUrl
                             )
                         }
 
@@ -92,9 +85,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun formatTime(timestamp: String): String {
         return try {
+            // Backend returns UTC timestamps, parse with UTC timezone
             val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            inputFormat.timeZone = TimeZone.getTimeZone("UTC")
+
+            // Output format uses local timezone (WIB)
+            val outputFormat = SimpleDateFormat("HH:mm", Locale("id", "ID"))
+            outputFormat.timeZone = TimeZone.getDefault() // Local timezone
+
             val date = inputFormat.parse(timestamp)
-            timeFormat.format(date!!)
+            outputFormat.format(date!!)
         } catch (e: Exception) {
             Log.e(TAG, "Error formatting time: $timestamp", e)
             timestamp
@@ -103,8 +103,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun formatDate(timestamp: String): String {
         return try {
+            // Backend returns UTC timestamps, parse with UTC timezone
             val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            inputFormat.timeZone = TimeZone.getTimeZone("UTC")
+
+            // Output format uses local timezone
             val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale("id", "ID"))
+            dateFormat.timeZone = TimeZone.getDefault()
+
             val date = inputFormat.parse(timestamp)
             dateFormat.format(date!!)
         } catch (e: Exception) {

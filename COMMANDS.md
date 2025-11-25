@@ -1,226 +1,170 @@
-# 🎮 Development Commands
+# Development Commands & Scripts
 
 Panduan lengkap untuk menggunakan development commands dan scripts.
 
 ---
 
-## 🚀 Custom Claude Commands
+## Quick Reference
 
-### `/start` - Start All Development Servers
+| Script | Description | Port |
+|--------|-------------|------|
+| `scripts\start-all.bat` | Start all services | 3001, 5173, 5000 |
+| `scripts\start-backend.bat` | Start Backend only | 3001 |
+| `scripts\start-web-admin.bat` | Start Web Admin only | 5173 |
+| `scripts\start-face-recognition.bat` | Start ML Service only | 5000 |
+| `scripts\stop-all.bat` | Stop all services | - |
+| `scripts\stop-backend.bat` | Stop Backend only | 3001 |
+| `scripts\stop-web-admin.bat` | Stop Web Admin only | 5173 |
+| `scripts\stop-face-recognition.bat` | Stop ML Service only | 5000 |
+| `scripts\launch-scrcpy.bat` | Android screen mirroring | - |
 
-Menjalankan semua server development (Backend + Web Admin) secara otomatis.
+---
 
-**Usage**:
-```
+## Claude Code Custom Commands
+
+### `/start` - Start Development Servers
+
+Menjalankan Backend + Web Admin di jendela CMD terpisah.
+
+```bash
 /start
 ```
 
 **What it does**:
-1. Starts Backend API (NestJS) on port 3001
-2. Starts Web Admin (React) on port 5173
-3. Shows status and URLs
-4. Opens in separate terminal windows
+1. Opens Backend in new CMD window (port 3001)
+2. Opens Web Admin in new CMD window (port 5173)
+3. Each service runs independently
+
+**Options**:
+- `/start` - Start Backend + Web Admin
+- `/start backend` - Start Backend only
+- `/start web` - Start Web Admin only
+- `/start all` - Start all services including Face Recognition
 
 ---
 
-### `/scrcpy` - Launch Android Screen Mirroring
+### `/scrcpy` - Android Screen Mirroring
 
 Launch scrcpy untuk mirror layar Android device ke komputer.
 
-**Usage**:
-```
+```bash
 /scrcpy
 ```
 
-**What it does**:
-1. Checks if scrcpy is installed
-2. Checks for connected Android devices
-3. Launches scrcpy with optimized settings:
-   - Resolution: 1024x768
-   - Bitrate: 8Mbps
-   - Always on top
-   - Keep screen on
-
 **Prerequisites**:
-- scrcpy installed
+- scrcpy installed (`C:\scrcpy\scrcpy-win64-v3.1\`)
 - Android device connected via USB
 - USB Debugging enabled
-- ADB drivers installed
 
 ---
 
-## 📜 Shell Scripts
+## Scripts (scripts/ folder)
 
-### Windows (`.bat` files)
+### Start Scripts
 
-#### Start Development Servers
+#### `start-all.bat`
+Start all 3 services in separate windows:
 ```cmd
-start-dev.bat
+scripts\start-all.bat
 ```
 
-#### Stop All Servers
+#### `start-backend.bat`
+Start Backend API only:
 ```cmd
-stop-dev.bat
+scripts\start-backend.bat
 ```
+- Port: 3001
+- URL: http://localhost:3001/api
 
-#### Launch scrcpy
+#### `start-web-admin.bat`
+Start Web Admin only:
 ```cmd
-launch-scrcpy.bat
+scripts\start-web-admin.bat
 ```
+- Port: 5173
+- URL: http://localhost:5173
 
-### Linux/Mac (`.sh` files)
-
-#### Start Development Servers
-```bash
-./start-dev.sh
-```
-
-#### Stop All Servers
-```bash
-./stop-dev.sh
-```
-
-#### Launch scrcpy
-```bash
-./launch-scrcpy.sh
-```
-
----
-
-## 🔧 Script Details
-
-### `start-dev.bat` / `start-dev.sh`
-
-**Features**:
-- ✅ Checks if servers already running
-- ✅ Starts backend in separate window
-- ✅ Starts web admin in separate window
-- ✅ Shows server URLs
-- ✅ Checks server health
-- ✅ Logs output to files (Unix only)
-
-**Ports**:
-- Backend: `3001`
-- Web Admin: `5173`
-
-**Logs** (Linux/Mac):
-- Backend: `logs/backend.log`
-- Web Admin: `logs/web-admin.log`
-
----
-
-### `stop-dev.bat` / `stop-dev.sh`
-
-**Features**:
-- ✅ Stops backend server
-- ✅ Stops web admin server
-- ✅ Kills processes by port
-- ✅ Confirms shutdown
-
----
-
-### `launch-scrcpy.bat` / `launch-scrcpy.sh`
-
-**Features**:
-- ✅ Checks scrcpy installation
-- ✅ Checks ADB installation
-- ✅ Lists connected devices
-- ✅ Launches with optimal settings
-- ✅ Error handling
-
-**scrcpy Settings Used**:
-```bash
---max-size 1024          # Limit resolution to 1024px
---bit-rate 8M            # 8Mbps for smooth streaming
---always-on-top          # Keep window on top
---turn-screen-off        # Turn off device screen
---stay-awake             # Prevent device sleep
-```
-
----
-
-## 📦 Installation Requirements
-
-### scrcpy Installation
-
-#### Windows
+#### `start-face-recognition.bat`
+Start Python ML Service only:
 ```cmd
-# Option 1: Chocolatey
-choco install scrcpy
-
-# Option 2: Scoop
-scoop install scrcpy
-
-# Option 3: Manual
-# Download from: https://github.com/Genymobile/scrcpy/releases
+scripts\start-face-recognition.bat
 ```
+- Port: 5000
+- URL: http://localhost:5000/health
 
-#### macOS
-```bash
-brew install scrcpy
-```
+---
 
-#### Linux (Ubuntu/Debian)
-```bash
-sudo apt install scrcpy
-```
+### Stop Scripts
 
-#### Linux (Arch)
-```bash
-sudo pacman -S scrcpy
-```
-
-### Android SDK Platform Tools (for ADB)
-
-#### Windows
+#### `stop-all.bat`
+Stop all services:
 ```cmd
-# Chocolatey
-choco install adb
-
-# Or download from:
-# https://developer.android.com/studio/releases/platform-tools
+scripts\stop-all.bat
 ```
 
-#### macOS
-```bash
-brew install android-platform-tools
+#### `stop-backend.bat`
+Stop Backend only (kills process on port 3001):
+```cmd
+scripts\stop-backend.bat
 ```
 
-#### Linux
-```bash
-sudo apt install adb
+#### `stop-web-admin.bat`
+Stop Web Admin only (kills process on port 5173):
+```cmd
+scripts\stop-web-admin.bat
+```
+
+#### `stop-face-recognition.bat`
+Stop ML Service only (kills process on port 5000):
+```cmd
+scripts\stop-face-recognition.bat
 ```
 
 ---
 
-## 🎯 Common Workflows
+### Utility Scripts
+
+#### `launch-scrcpy.bat`
+Launch Android screen mirroring:
+```cmd
+scripts\launch-scrcpy.bat
+```
+
+#### `status-check.bat`
+Check status of all services:
+```cmd
+scripts\status-check.bat
+```
+
+---
+
+## Common Workflows
 
 ### Starting Development
 
-**Option 1: Using Command**
-```bash
-# In Claude Code
-/start
+**Option 1: All Services**
+```cmd
+scripts\start-all.bat
 ```
 
-**Option 2: Using Script**
-```bash
-# Windows
-start-dev.bat
+**Option 2: Backend + Web Admin Only**
+```cmd
+scripts\start-backend.bat
+scripts\start-web-admin.bat
+```
 
-# Linux/Mac
-./start-dev.sh
+**Option 3: Claude Code Command**
+```bash
+/start
 ```
 
 ---
 
-### Android Development Workflow
+### Android Development
 
 ```bash
 # 1. Connect Android device via USB
-
 # 2. Enable USB Debugging on device
-# Settings → Developer Options → USB Debugging
 
 # 3. Start servers
 /start
@@ -228,11 +172,8 @@ start-dev.bat
 # 4. Launch scrcpy
 /scrcpy
 
-# 5. Now you can:
-#    - See device screen on PC
-#    - Use device normally
-#    - Test app while developing
-#    - Keep device screen off (save battery)
+# 5. Setup ADB reverse for localhost
+adb reverse tcp:3001 tcp:3001
 ```
 
 ---
@@ -241,189 +182,75 @@ start-dev.bat
 
 ```bash
 # Morning: Start everything
-/start          # Start backend + web admin
-/scrcpy         # Mirror Android screen
+scripts\start-all.bat
 
 # Work on code...
-# - Edit files in VS Code/Android Studio
-# - Test on web admin (localhost:5173)
-# - Test on Android device (via scrcpy)
+# - Backend: http://localhost:3001/api
+# - Web Admin: http://localhost:5173
+# - ML Service: http://localhost:5000
 
-# Evening: Stop servers
-# Windows: stop-dev.bat
-# Linux/Mac: ./stop-dev.sh
+# Evening: Stop all
+scripts\stop-all.bat
 ```
 
 ---
 
-## 🐛 Troubleshooting
+## Health Checks
 
-### Servers won't start
-
-**Backend fails**:
 ```bash
-# Check PostgreSQL
-# Windows
-services.msc → PostgreSQL
-
-# Linux/Mac
-sudo systemctl status postgresql
-```
-
-**Port already in use**:
-```bash
-# Windows - Kill process on port 3001
-netstat -ano | findstr :3001
-taskkill /F /PID <PID>
-
-# Linux/Mac - Kill process on port 3001
-lsof -ti:3001 | xargs kill
-```
-
----
-
-### scrcpy issues
-
-**scrcpy not found**:
-```bash
-# Check installation
-scrcpy --version
-
-# Reinstall if needed
-# See installation section above
-```
-
-**No devices found**:
-1. Check USB cable connection
-2. Enable USB Debugging on Android
-3. Accept authorization on device
-4. Try `adb devices` to verify
-
-**Black screen**:
-```bash
-# Try without --turn-screen-off
-scrcpy --max-size 1024 --bit-rate 8M
-```
-
-**Lag/stuttering**:
-```bash
-# Reduce bitrate
-scrcpy --max-size 800 --bit-rate 4M
-
-# Or reduce resolution
-scrcpy --max-size 720 --bit-rate 8M
-```
-
----
-
-## 📊 Server Status Check
-
-### Quick Check
-```bash
-# Backend health
+# Backend
 curl http://localhost:3001/api/health
 
-# Web admin (should return HTML)
+# ML Service
+curl http://localhost:5000/health
+
+# Web Admin (returns HTML)
 curl http://localhost:5173
 ```
 
-### Full Status
-```bash
-# Windows
-netstat -ano | findstr ":3001"
-netstat -ano | findstr ":5173"
+---
 
-# Linux/Mac
-lsof -i :3001
-lsof -i :5173
+## Troubleshooting
+
+### Port Already in Use
+
+```cmd
+# Find process using port
+netstat -ano | findstr :3001
+
+# Kill process by PID
+taskkill /F /PID <PID>
 ```
 
----
+### Backend Won't Start
 
-## 🔍 Viewing Logs
+1. Check PostgreSQL is running
+2. Check `.env` configuration
+3. Run `npm run prisma:generate`
 
-### Windows
-Logs are shown in the terminal windows that open.
+### ML Service Won't Start
 
-### Linux/Mac
-```bash
-# Backend logs
-tail -f logs/backend.log
+1. Check Python 3.11+ installed
+2. Activate virtual environment
+3. Install dependencies: `pip install -r requirements.txt`
 
-# Web admin logs
-tail -f logs/web-admin.log
+### scrcpy Issues
 
-# Both logs simultaneously
-tail -f logs/*.log
-```
-
----
-
-## ⚡ Quick Reference
-
-| Command | Description |
-|---------|-------------|
-| `/start` | Start all dev servers |
-| `/scrcpy` | Launch Android mirroring |
-| `start-dev.bat` | Windows: Start servers |
-| `./start-dev.sh` | Unix: Start servers |
-| `stop-dev.bat` | Windows: Stop servers |
-| `./stop-dev.sh` | Unix: Stop servers |
-| `launch-scrcpy.bat` | Windows: Launch scrcpy |
-| `./launch-scrcpy.sh` | Unix: Launch scrcpy |
+1. Check device connected: `adb devices`
+2. Enable USB Debugging on device
+3. Accept USB debugging authorization on device
 
 ---
 
-## 💡 Pro Tips
+## Port Reference
 
-1. **Use scrcpy keyboard shortcuts**:
-   - `Ctrl+C` / `Cmd+C` - Copy
-   - `Ctrl+V` / `Cmd+V` - Paste
-   - `Ctrl+S` / `Cmd+S` - Screenshot
-   - `Ctrl+P` / `Cmd+P` - Power button
-   - `Ctrl+↑/↓` - Volume
-
-2. **Monitor logs in real-time**:
-   ```bash
-   # Linux/Mac
-   tail -f logs/*.log
-   ```
-
-3. **Restart single server**:
-   ```bash
-   # Stop just backend
-   # Windows
-   netstat -ano | findstr :3001
-   taskkill /F /PID <PID>
-
-   # Then restart
-   cd backend && npm run start:dev
-   ```
-
-4. **Use scrcpy wireless** (after initial USB connection):
-   ```bash
-   # Get device IP
-   adb shell ip addr show wlan0
-
-   # Connect via TCP
-   adb tcpip 5555
-   adb connect DEVICE_IP:5555
-
-   # Now disconnect USB and use scrcpy
-   scrcpy
-   ```
+| Service | Port | URL |
+|---------|------|-----|
+| Backend API | 3001 | http://localhost:3001/api |
+| Web Admin | 5173 | http://localhost:5173 |
+| ML Service | 5000 | http://localhost:5000 |
+| Prisma Studio | 5555 | http://localhost:5555 |
 
 ---
 
-## 📝 Notes
-
-- Commands work from project root directory
-- Scripts check if servers already running
-- Logs stored in `logs/` folder (Unix)
-- scrcpy requires USB debugging enabled
-- Backend needs PostgreSQL running
-- Web admin needs backend running
-
----
-
-**Happy Development! 🚀**
+**Last Updated**: November 25, 2025

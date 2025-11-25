@@ -23,14 +23,8 @@ object Constants {
     const val MIN_FACE_SIZE = 0.15f
     const val FACE_EMBEDDING_SIZE = 128
 
-    // Location
-    const val LOCATION_UPDATE_INTERVAL = 10000L // 10 seconds
-    const val LOCATION_FASTEST_INTERVAL = 5000L // 5 seconds
-    const val DEFAULT_LOCATION_RADIUS = 100f // meters
-
     // Request Codes
     const val REQUEST_CAMERA_PERMISSION = 100
-    const val REQUEST_LOCATION_PERMISSION = 101
 
     // Database
     const val DATABASE_NAME = "absensi_db"

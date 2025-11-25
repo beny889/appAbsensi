@@ -8,6 +8,8 @@ import Attendance from './pages/Attendance/Attendance';
 import DailyReports from './pages/Reports/DailyReports';
 import MonthlyReports from './pages/Reports/MonthlyReports';
 import PendingRegistrations from './pages/FaceRegistration/PendingRegistrations';
+import WorkSchedules from './pages/WorkSchedules/WorkSchedules';
+import Departments from './pages/Departments/Departments';
 import Layout from './components/layout/Layout';
 
 const theme = createTheme({
@@ -45,6 +47,8 @@ function App() {
             <Route path="employees" element={<Employees />} />
             <Route path="attendance" element={<Attendance />} />
             <Route path="face-registration/pending" element={<PendingRegistrations />} />
+            <Route path="departments" element={<Departments />} />
+            <Route path="work-schedules" element={<WorkSchedules />} />
             <Route path="reports/daily" element={<DailyReports />} />
             <Route path="reports/monthly" element={<MonthlyReports />} />
           </Route>

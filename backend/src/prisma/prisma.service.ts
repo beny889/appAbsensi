@@ -37,16 +37,20 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return this.prisma.attendance;
   }
 
-  get location() {
-    return this.prisma.location;
-  }
-
   get settings() {
     return this.prisma.settings;
   }
 
   get faceRegistration() {
     return this.prisma.faceRegistration;
+  }
+
+  get department() {
+    return this.prisma.department;
+  }
+
+  get workSchedule() {
+    return this.prisma.workSchedule;
   }
 
   // Expose transaction and other utility methods
