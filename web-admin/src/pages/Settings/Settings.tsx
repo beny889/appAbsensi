@@ -55,7 +55,6 @@ export default function Settings() {
       setThreshold(data.value);
     } catch (error) {
       toast.error('Gagal memuat pengaturan');
-      console.error(error);
     } finally {
       setLoadingThreshold(false);
     }

@@ -32,11 +32,6 @@ export class FaceRecognitionMlService {
       throw new Error('Invalid response from face recognition service');
     } catch (error) {
       // If ML service is unavailable, generate placeholder embedding
-      // This allows the system to work without the ML service during development
-      console.warn(
-        'Face recognition ML service unavailable, using placeholder embedding:',
-        error.message,
-      );
       return this.generatePlaceholderEmbedding();
     }
   }

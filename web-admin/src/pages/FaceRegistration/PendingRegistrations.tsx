@@ -86,7 +86,6 @@ export default function PendingRegistrations() {
       setEmployees(employeesData.filter(e => e.isActive));
     } catch (error) {
       toast.error('Gagal memuat data');
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -99,7 +98,6 @@ export default function PendingRegistrations() {
       setRegistrations(data);
     } catch (error) {
       toast.error('Gagal memuat data pendaftaran');
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -144,7 +142,6 @@ export default function PendingRegistrations() {
       setApproveDialog({ open: false, registration: null });
       loadPendingRegistrations();
     } catch (error) {
-      console.error(error);
     } finally {
       setSubmitting(false);
     }
@@ -165,7 +162,6 @@ export default function PendingRegistrations() {
       setRejectDialog({ open: false, registration: null });
       loadPendingRegistrations();
     } catch (error) {
-      console.error(error);
     } finally {
       setSubmitting(false);
     }
@@ -179,7 +175,6 @@ export default function PendingRegistrations() {
       toast.success('Pendaftaran berhasil dihapus');
       loadPendingRegistrations();
     } catch (error) {
-      console.error(error);
     }
   };
 
@@ -203,7 +198,6 @@ export default function PendingRegistrations() {
       setReplaceDialog({ open: false, registration: null });
       loadPendingRegistrations();
     } catch (error) {
-      console.error(error);
     } finally {
       setSubmitting(false);
     }

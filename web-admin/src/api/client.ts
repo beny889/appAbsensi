@@ -29,13 +29,9 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<any>) => {
     if (error.response?.status === 401) {
-      const token = localStorage.getItem('token');
-      // Don't redirect if using dev bypass token
-      if (token !== 'dev-bypass-token') {
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-        toast.error('Session expired. Please login again.');
-      }
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+      toast.error('Session expired. Please login again.');
     } else if (error.response?.data?.message) {
       toast.error(error.response.data.message);
     } else {

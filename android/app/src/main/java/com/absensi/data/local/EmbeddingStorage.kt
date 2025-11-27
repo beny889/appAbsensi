@@ -75,7 +75,6 @@ class EmbeddingStorage(context: Context) {
 
             val json = gson.toJson(serializableList)
             prefs.edit().putString(KEY_EMBEDDINGS, json).apply()
-            Log.d(TAG, "Saved ${embeddings.size} users (with multiple embeddings) to storage")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save embeddings: ${e.message}")
         }
@@ -118,7 +117,6 @@ class EmbeddingStorage(context: Context) {
                 )
             }.also {
                 val totalEmbeddings = it.sumOf { user -> user.getAllEmbeddings().size }
-                Log.d(TAG, "Loaded ${it.size} users with $totalEmbeddings total embeddings from storage")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load embeddings: ${e.message}")
@@ -173,10 +171,8 @@ class EmbeddingStorage(context: Context) {
 
         if (existingIndex >= 0) {
             embeddings[existingIndex] = userEmbedding
-            Log.d(TAG, "Updated embedding for user: ${userEmbedding.odId}")
         } else {
             embeddings.add(userEmbedding)
-            Log.d(TAG, "Added new embedding for user: ${userEmbedding.odId}")
         }
 
         saveEmbeddings(embeddings)
@@ -190,7 +186,6 @@ class EmbeddingStorage(context: Context) {
         val removed = embeddings.removeAll { it.odId == odId }
         if (removed) {
             saveEmbeddings(embeddings)
-            Log.d(TAG, "Removed embedding for user: $odId")
         }
     }
 
@@ -199,7 +194,6 @@ class EmbeddingStorage(context: Context) {
      */
     fun clearAll() {
         prefs.edit().clear().apply()
-        Log.d(TAG, "Cleared all embeddings from storage")
     }
 
     /**
@@ -250,7 +244,6 @@ class EmbeddingStorage(context: Context) {
      */
     fun saveFaceThreshold(threshold: Float) {
         prefs.edit().putFloat(KEY_FACE_THRESHOLD, threshold).apply()
-        Log.d(TAG, "Saved face threshold: $threshold")
     }
 
     /**
@@ -259,7 +252,6 @@ class EmbeddingStorage(context: Context) {
      */
     fun getFaceThreshold(): Float {
         val threshold = prefs.getFloat(KEY_FACE_THRESHOLD, DEFAULT_FACE_THRESHOLD)
-        Log.d(TAG, "Loaded face threshold: $threshold")
         return threshold
     }
 

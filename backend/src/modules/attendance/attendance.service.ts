@@ -75,11 +75,9 @@ export class AttendanceService {
       },
     });
 
-    console.log(`[Late/Early Check] User: ${user?.name}, Department: ${user?.department?.name || 'NONE'}, Schedule: ${user?.department?.workSchedules?.[0] ? 'FOUND' : 'NOT FOUND'}`);
 
     if (!user?.department?.workSchedules?.[0]) {
       // No schedule found, return empty
-      console.log(`[Late/Early Check] No schedule found for user ${user?.name} - departmentId: ${user?.departmentId}`);
       return {};
     }
 
@@ -91,8 +89,6 @@ export class AttendanceService {
     const currentMinute = wibTime.minutes;
     const currentTotalMinutes = currentHour * 60 + currentMinute;
 
-    console.log(`[Late/Early Check] Schedule checkInTime: ${schedule.checkInTime}, checkOutTime: ${schedule.checkOutTime}`);
-    console.log(`[Late/Early Check] UTC time: ${timestamp.getUTCHours()}:${timestamp.getUTCMinutes()}, WIB time: ${currentHour}:${currentMinute} (${currentTotalMinutes} min)`);
 
     if (type === AttendanceType.CHECK_IN) {
       // Parse scheduled check-in time
@@ -101,7 +97,6 @@ export class AttendanceService {
 
       const diffMinutes = currentTotalMinutes - scheduleTotalMinutes;
 
-      console.log(`[Late/Early Check] CHECK_IN: scheduled=${scheduleTotalMinutes}min, current=${currentTotalMinutes}min, diff=${diffMinutes}min, isLate=${diffMinutes > 0}`);
 
       return {
         isLate: diffMinutes > 0,
@@ -479,9 +474,6 @@ export class AttendanceService {
     let bestMatch: any = null;
     let bestDistance = Infinity;
 
-    console.log(`[Face Match] Comparing against ${approvedUsers.length} approved users...`);
-    console.log(`[Face Match] Provided embedding length: ${providedEmbedding.length}`);
-    console.log(`[Face Match] Using threshold: ${threshold}`);
 
     for (const user of approvedUsers) {
       if (!user.faceEmbedding) continue;
@@ -493,7 +485,6 @@ export class AttendanceService {
           userEmbedding,
         );
 
-        console.log(`[Face Match] User: ${user.name}, Distance: ${distance.toFixed(4)}`);
 
         // Lower distance = better match
         if (distance < bestDistance) {
@@ -502,12 +493,10 @@ export class AttendanceService {
         }
       } catch (error) {
         // Skip users with invalid embeddings
-        console.log(`[Face Match] User: ${user.name}, Error parsing embedding`);
         continue;
       }
     }
 
-    console.log(`[Face Match] Best match: ${bestMatch?.name || 'NONE'}, Distance: ${bestDistance.toFixed(4)}, Threshold: ${threshold}`);
 
     // Check if best match is within threshold (lower distance = match)
     // If distance > threshold, face is NOT recognized
@@ -755,7 +744,6 @@ export class AttendanceService {
       },
     });
 
-    console.log(`[Sync Embeddings] Found ${approvedUsers.length} approved users`);
 
     // Transform data for Android app
     const embeddings = approvedUsers.map(user => {
@@ -765,9 +753,7 @@ export class AttendanceService {
       if (user.faceEmbeddings) {
         try {
           embeddingsList = JSON.parse(user.faceEmbeddings);
-          console.log(`[Sync Embeddings] User ${user.name}: ${embeddingsList.length} embeddings (multi)`);
         } catch (e) {
-          console.log(`[Sync Embeddings] Error parsing faceEmbeddings for user ${user.name}`);
         }
       }
 
@@ -776,9 +762,7 @@ export class AttendanceService {
         try {
           const singleEmb = JSON.parse(user.faceEmbedding);
           embeddingsList = [singleEmb];
-          console.log(`[Sync Embeddings] User ${user.name}: 1 embedding (single/legacy)`);
         } catch (e) {
-          console.log(`[Sync Embeddings] Error parsing faceEmbedding for user ${user.name}`);
         }
       }
 
@@ -840,7 +824,6 @@ export class AttendanceService {
       throw new UnauthorizedException('Face registration not approved.');
     }
 
-    console.log(`[Device Verify] User: ${user.name}, Type: ${dto.type}, Distance: ${dto.distance?.toFixed(4) || 'N/A'}`);
 
     // Create attendance record (trusting device verification)
     const attendance = await this.create(user.id, {

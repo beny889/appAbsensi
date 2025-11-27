@@ -74,7 +74,6 @@ export default function Attendance() {
       setPage(0); // Reset to first page when data changes
     } catch (error) {
       toast.error('Gagal memuat data absensi');
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -140,7 +139,6 @@ export default function Attendance() {
       setDeleteDialog({ open: false, attendance: null });
     } catch (error) {
       toast.error('Gagal menghapus data absensi');
-      console.error(error);
     } finally {
       setDeleting(false);
     }

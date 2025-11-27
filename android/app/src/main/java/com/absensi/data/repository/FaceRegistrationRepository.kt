@@ -27,8 +27,6 @@ class FaceRegistrationRepository {
         faceImageBase64: String
     ): Result<FaceRegistrationResponse> {
         return try {
-            Log.d(TAG, "Submitting registration with embedding for: $name")
-            Log.d(TAG, "Embedding: ${faceEmbedding.take(50)}...")
 
             val request = SubmitFaceRegistrationRequest(
                 name = name,
@@ -36,12 +34,9 @@ class FaceRegistrationRepository {
                 faceImageUrl = "data:image/jpeg;base64,$faceImageBase64"
             )
 
-            Log.d(TAG, "Sending request to API...")
             val response = apiService.submitFaceRegistration(request)
-            Log.d(TAG, "Response code: ${response.code()}")
 
             if (response.isSuccessful && response.body() != null) {
-                Log.d(TAG, "Registration successful: ${response.body()}")
                 Result.success(response.body()!!)
             } else {
                 val errorBody = response.errorBody()?.string()
@@ -91,9 +86,6 @@ class FaceRegistrationRepository {
         faceImagesBase64: List<String>
     ): Result<FaceRegistrationResponse> {
         return try {
-            Log.d(TAG, "Submitting multi-embedding registration for: $name")
-            Log.d(TAG, "Number of embeddings: ${faceEmbeddings.size}")
-            Log.d(TAG, "Number of images: ${faceImagesBase64.size}")
 
             // Convert base64 images to data URLs
             val imageUrls = faceImagesBase64.map { "data:image/jpeg;base64,$it" }
@@ -106,12 +98,9 @@ class FaceRegistrationRepository {
                 faceImageUrl = imageUrls.firstOrNull()
             )
 
-            Log.d(TAG, "Sending multi-embedding request to API...")
             val response = apiService.submitFaceRegistration(request)
-            Log.d(TAG, "Response code: ${response.code()}")
 
             if (response.isSuccessful && response.body() != null) {
-                Log.d(TAG, "Multi-embedding registration successful: ${response.body()}")
                 Result.success(response.body()!!)
             } else {
                 val errorBody = response.errorBody()?.string()
@@ -159,20 +148,15 @@ class FaceRegistrationRepository {
         faceImageBase64: String
     ): Result<FaceRegistrationResponse> {
         return try {
-            Log.d(TAG, "Submitting registration for: $name")
-            Log.d(TAG, "Image size: ${faceImageBase64.length} characters")
 
             val request = SubmitFaceRegistrationRequest(
                 name = name,
                 faceImageBase64 = faceImageBase64
             )
 
-            Log.d(TAG, "Sending request to API...")
             val response = apiService.submitFaceRegistration(request)
-            Log.d(TAG, "Response code: ${response.code()}")
 
             if (response.isSuccessful && response.body() != null) {
-                Log.d(TAG, "Registration successful: ${response.body()}")
                 Result.success(response.body()!!)
             } else {
                 val errorBody = response.errorBody()?.string()

@@ -72,7 +72,6 @@ export default function Employees() {
       setEmployees(data);
     } catch (error) {
       toast.error('Gagal memuat data karyawan');
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -83,7 +82,6 @@ export default function Employees() {
       const data = await departmentApi.getAll();
       setDepartments(data);
     } catch (error) {
-      console.error('Failed to load departments:', error);
     }
   };
 

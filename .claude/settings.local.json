@@ -134,7 +134,10 @@
       "Bash(cmd.exe //c \"dir /s /b \"\"C:\\Program Files\\Java\\*java.exe\"\" 2>nul\")",
       "Bash(cmd.exe //c \"dir \"\"C:\\Program Files\\Android\"\" 2>nul\")",
       "Bash(cmd.exe //c \"gradlew.bat compileDebugKotlin 2>&1\")",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(for f in pages/Attendance/Attendance.tsx pages/Dashboard/Dashboard.tsx pages/Departments/Departments.tsx pages/Employees/Employees.tsx pages/FaceRegistration/PendingRegistrations.tsx pages/Holidays/Holidays.tsx pages/Reports/DailyReports.tsx pages/Reports/EmployeeDetailReport.tsx pages/Reports/MonthlyReports.tsx pages/Settings/Settings.tsx pages/WorkSchedules/WorkSchedules.tsx)",
+      "Bash(do sed -i '/console\\.\\(log\\|error\\)/d' \"$f\")",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []

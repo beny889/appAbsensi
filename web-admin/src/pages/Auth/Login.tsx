@@ -37,17 +37,10 @@ export default function Login() {
       toast.success('Login berhasil!');
       navigate('/');
     } catch (error: any) {
-      console.error('Login error:', error);
+      // Error already handled by API interceptor
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDevBypass = () => {
-    // Development bypass - set mock token
-    localStorage.setItem('token', 'dev-bypass-token');
-    toast.success('Development mode: Login bypassed');
-    navigate('/');
   };
 
   return (
@@ -102,15 +95,6 @@ export default function Login() {
               disabled={loading}
             >
               {loading ? <CircularProgress size={24} /> : 'Login'}
-            </Button>
-            <Button
-              fullWidth
-              variant="outlined"
-              color="secondary"
-              onClick={handleDevBypass}
-              disabled={loading}
-            >
-              🚀 Dev Mode: Bypass Login
             </Button>
           </Box>
         </Paper>

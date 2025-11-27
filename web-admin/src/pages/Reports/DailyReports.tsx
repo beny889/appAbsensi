@@ -78,7 +78,6 @@ export default function DailyReports() {
       toast.success('Laporan berhasil dimuat');
     } catch (error) {
       toast.error('Gagal memuat laporan');
-      console.error(error);
     } finally {
       setLoading(false);
     }

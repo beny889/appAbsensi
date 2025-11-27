@@ -99,7 +99,6 @@ export default function Dashboard() {
       setPresence(presenceData);
     } catch (error) {
       toast.error('Gagal memuat statistik');
-      console.error(error);
     } finally {
       setLoading(false);
     }

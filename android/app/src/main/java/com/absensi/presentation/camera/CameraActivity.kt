@@ -175,7 +175,6 @@ class CameraActivity : AppCompatActivity() {
                 withContext(Dispatchers.IO) {
                     faceRecognitionHelper.initialize(useGpu = false)
                 }
-                Log.d(TAG, "✓ FaceRecognitionHelper initialized")
 
                 // Sync embeddings from server
                 updateStatus("Sinkronisasi data wajah...")
@@ -186,7 +185,6 @@ class CameraActivity : AppCompatActivity() {
                 syncResult.fold(
                     onSuccess = { response ->
                         val supportsMulti = response.supportsMultipleEmbeddings ?: false
-                        Log.d(TAG, "✓ Synced ${response.count} users (multi-embeddings: $supportsMulti)")
 
                         // Save embeddings to local storage (with multiple embeddings support)
                         withContext(Dispatchers.IO) {
@@ -197,7 +195,6 @@ class CameraActivity : AppCompatActivity() {
                                 } ?: listOf()
 
                                 val embCount = dto.embeddingsCount ?: 1
-                                Log.d(TAG, "User ${dto.name}: $embCount embeddings")
 
                                 EmbeddingStorage.UserEmbedding(
                                     odId = dto.odId,
@@ -214,7 +211,6 @@ class CameraActivity : AppCompatActivity() {
                             // Save face recognition threshold from server settings
                             response.settings?.let { settings ->
                                 embeddingStorage.saveFaceThreshold(settings.faceDistanceThreshold)
-                                Log.d(TAG, "✓ Saved face threshold from server: ${settings.faceDistanceThreshold}")
                             }
                         }
 
@@ -236,7 +232,6 @@ class CameraActivity : AppCompatActivity() {
 
                         // Check if we have cached embeddings
                         if (embeddingStorage.hasEmbeddings()) {
-                            Log.d(TAG, "Using cached embeddings (${embeddingStorage.getEmbeddingsCount()} users)")
                             isOnDeviceReady = true
                             binding.progressBar.visibility = android.view.View.GONE
 
@@ -300,7 +295,6 @@ class CameraActivity : AppCompatActivity() {
             }
             binding.tvThresholdBadge.text = "T: $thresholdPercent% ($label)"
             binding.tvThresholdBadge.visibility = android.view.View.VISIBLE
-            Log.d(TAG, "Threshold badge updated: $thresholdPercent% - $label")
         }
     }
 
@@ -673,7 +667,6 @@ class CameraActivity : AppCompatActivity() {
                 val embedding = withContext(Dispatchers.IO) {
                     faceRecognitionHelper.extractEmbedding(faceBitmap)
                 }
-                Log.d(TAG, "✓ Extracted embedding with ${embedding.size} dimensions")
 
                 // Get stored embeddings (multi-embeddings for better accuracy)
                 val storedMultiEmbeddings = withContext(Dispatchers.IO) {
@@ -692,7 +685,6 @@ class CameraActivity : AppCompatActivity() {
                 val threshold = withContext(Dispatchers.IO) {
                     embeddingStorage.getFaceThreshold()
                 }
-                Log.d(TAG, "Using face threshold: $threshold")
 
                 updateStatus("Mencocokkan wajah...")
                 // Use new function that returns detailed matching info for logging
@@ -757,8 +749,6 @@ class CameraActivity : AppCompatActivity() {
                 }
                 val registrationPhotoUrl = faceImageUrls[matchedOdId]
 
-                Log.d(TAG, "✓ Face matched: $matchedName (distance: $distance, similarity: ${String.format("%.1f", similarity * 100)}%)")
-                Log.d(TAG, "Registration photo URL: $registrationPhotoUrl")
 
                 // For CHECK_OUT, check early BEFORE showing confirmation dialog
                 if (!isCheckIn) {
@@ -902,7 +892,6 @@ class CameraActivity : AppCompatActivity() {
         matchedName: String
     ) {
         CoroutineScope(Dispatchers.Main).launch {
-            Log.d(TAG, "Creating device-verified attendance: user=$odId, type=$attendanceType")
 
             val result = withContext(Dispatchers.IO) {
                 attendanceRepository.createAttendanceFromDevice(
@@ -918,7 +907,6 @@ class CameraActivity : AppCompatActivity() {
 
             result.fold(
                 onSuccess = { attendance ->
-                    Log.d(TAG, "✓ Device-verified attendance success: ${attendance.id}")
 
                     if (attendanceType == "CHECK_IN") {
                         showSuccessDialog(
@@ -1118,7 +1106,6 @@ class CameraActivity : AppCompatActivity() {
 
             // Load registration photo from URL using Glide
             if (!registrationPhotoUrl.isNullOrEmpty()) {
-                Log.d(TAG, "Loading registration photo from URL: $registrationPhotoUrl")
                 com.bumptech.glide.Glide.with(this)
                     .load(registrationPhotoUrl)
                     .placeholder(android.R.drawable.ic_menu_gallery)
@@ -1287,9 +1274,6 @@ class CameraActivity : AppCompatActivity() {
      */
     private fun proceedWithAttendance(faceImageBase64: String, attendanceType: String) {
         CoroutineScope(Dispatchers.Main).launch {
-            Log.d(TAG, "Calling anonymous attendance API with face image...")
-            Log.d(TAG, "Type: $attendanceType")
-            Log.d(TAG, "Face image base64 length: ${faceImageBase64.length}")
 
             val result = withContext(Dispatchers.IO) {
                 attendanceRepository.verifyAndCreateAttendanceAnonymous(
@@ -1303,7 +1287,6 @@ class CameraActivity : AppCompatActivity() {
 
             result.fold(
                 onSuccess = { attendance ->
-                    Log.d(TAG, "✓ Attendance success: ${attendance.id}")
 
                     // Extract matched user name from response
                     val matchedUserName = attendance.user?.name ?: "User"
@@ -1433,7 +1416,6 @@ class CameraActivity : AppCompatActivity() {
                     faceRecognitionHelper.extractEmbedding(faceBitmap)
                 }
 
-                Log.d(TAG, "✓ Step ${registrationStep + 1}: Extracted embedding with ${embedding.size} dimensions")
 
                 // Store image and embedding
                 capturedImages.add(faceImageBase64)
@@ -1639,7 +1621,6 @@ class CameraActivity : AppCompatActivity() {
                     embedding.joinToString(separator = ",", prefix = "[", postfix = "]")
                 }
 
-                Log.d(TAG, "Submitting registration with ${capturedImages.size} images and ${embeddingsJson.size} embeddings")
 
                 // Use the new repository method for multiple images
                 val result = withContext(Dispatchers.IO) {
@@ -1652,7 +1633,6 @@ class CameraActivity : AppCompatActivity() {
 
                 result.fold(
                     onSuccess = { response ->
-                        Log.d(TAG, "✓ Multi-image registration successful")
                         isProcessing = false
                         binding.progressBar.visibility = android.view.View.GONE
 
@@ -2158,7 +2138,6 @@ class CameraActivity : AppCompatActivity() {
                             withContext(Dispatchers.IO) {
                                 embeddingStorage.saveFaceThreshold(settings.faceDistanceThreshold)
                             }
-                            Log.d(TAG, "✓ Synced threshold from server: ${settings.faceDistanceThreshold}")
                         }
 
                         // Also update embeddings if changed

@@ -66,7 +66,6 @@ export default function WorkSchedules() {
       setDepartments(departmentsData.filter(d => d.isActive));
     } catch (error) {
       toast.error('Gagal memuat data');
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -78,7 +77,6 @@ export default function WorkSchedules() {
       setSchedules(data);
     } catch (error) {
       toast.error('Gagal memuat data jadwal kerja');
-      console.error(error);
     }
   };
 
@@ -124,7 +122,6 @@ export default function WorkSchedules() {
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || 'Terjadi kesalahan';
       toast.error(errorMsg);
-      console.error(error);
     }
   };
 
@@ -140,7 +137,6 @@ export default function WorkSchedules() {
         loadSchedules();
       } catch (error) {
         toast.error('Gagal menghapus jadwal kerja');
-        console.error(error);
       }
     }
   };

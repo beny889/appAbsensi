@@ -40,9 +40,6 @@ class AttendanceRepository {
         faceEmbedding: String
     ): Result<AttendanceResponse> {
         return try {
-            Log.d(TAG, "Verifying and creating attendance: type=$type")
-            Log.d(TAG, "Token: ${token.take(20)}...")
-            Log.d(TAG, "Face embedding length: ${faceEmbedding.length}")
 
             val request = VerifyAttendanceRequest(
                 type = type,
@@ -51,11 +48,8 @@ class AttendanceRepository {
 
             val response = apiService.verifyAndCreateAttendance(token, request)
 
-            Log.d(TAG, "Response code: ${response.code()}")
-            Log.d(TAG, "Response message: ${response.message()}")
 
             if (response.isSuccessful && response.body() != null) {
-                Log.d(TAG, "✓ Attendance created successfully")
                 Result.success(response.body()!!)
             } else {
                 val errorBody = response.errorBody()?.string()
@@ -128,8 +122,6 @@ class AttendanceRepository {
         faceEmbedding: String
     ): Result<AttendanceResponse> {
         return try {
-            Log.d(TAG, "Anonymous check-in: type=$type")
-            Log.d(TAG, "Face embedding length: ${faceEmbedding.length}")
 
             val request = VerifyAttendanceRequest(
                 type = type,
@@ -138,11 +130,8 @@ class AttendanceRepository {
 
             val response = apiService.verifyAndCreateAttendanceAnonymous(request)
 
-            Log.d(TAG, "Response code: ${response.code()}")
-            Log.d(TAG, "Response message: ${response.message()}")
 
             if (response.isSuccessful && response.body() != null) {
-                Log.d(TAG, "✓ Anonymous attendance created successfully")
                 Result.success(response.body()!!)
             } else {
                 val errorBody = response.errorBody()?.string()
@@ -211,12 +200,10 @@ class AttendanceRepository {
      */
     suspend fun getTodayAttendance(token: String): Result<List<AttendanceResponse>> {
         return try {
-            Log.d(TAG, "Fetching today's attendance")
 
             val response = apiService.getTodayAttendance(token)
 
             if (response.isSuccessful && response.body() != null) {
-                Log.d(TAG, "✓ Today's attendance fetched: ${response.body()!!.size} records")
                 Result.success(response.body()!!)
             } else {
                 val errorMsg = "Error ${response.code()}: ${response.message()}"
@@ -236,12 +223,10 @@ class AttendanceRepository {
      */
     suspend fun getTodayAllAttendance(): Result<List<GroupedAttendanceResponse>> {
         return try {
-            Log.d(TAG, "Fetching all today's attendance (public)")
 
             val response = apiService.getTodayAllAttendance()
 
             if (response.isSuccessful && response.body() != null) {
-                Log.d(TAG, "✓ All today's attendance fetched: ${response.body()!!.size} records")
                 Result.success(response.body()!!)
             } else {
                 val errorMsg = "Error ${response.code()}: ${response.message()}"
@@ -275,12 +260,10 @@ class AttendanceRepository {
         endDate: String? = null
     ): Result<List<AttendanceResponse>> {
         return try {
-            Log.d(TAG, "Fetching attendance history")
 
             val response = apiService.getMyAttendances(token, startDate, endDate)
 
             if (response.isSuccessful && response.body() != null) {
-                Log.d(TAG, "✓ Attendance history fetched: ${response.body()!!.size} records")
                 Result.success(response.body()!!)
             } else {
                 val errorMsg = "Error ${response.code()}: ${response.message()}"
@@ -301,16 +284,12 @@ class AttendanceRepository {
      */
     suspend fun verifyFaceOnly(faceEmbedding: String): Result<VerifyFaceOnlyResponse> {
         return try {
-            Log.d(TAG, "Verifying face only (no attendance creation)")
-            Log.d(TAG, "Face embedding length: ${faceEmbedding.length}")
 
             val request = VerifyFaceOnlyRequest(faceEmbedding = faceEmbedding)
             val response = apiService.verifyFaceOnly(request)
 
-            Log.d(TAG, "Response code: ${response.code()}")
 
             if (response.isSuccessful && response.body() != null) {
-                Log.d(TAG, "✓ Face verified: ${response.body()!!.userName}")
                 Result.success(response.body()!!)
             } else {
                 val errorBody = response.errorBody()?.string()
@@ -343,15 +322,12 @@ class AttendanceRepository {
      */
     suspend fun syncEmbeddings(): Result<SyncEmbeddingsResponse> {
         return try {
-            Log.d(TAG, "Syncing embeddings from server...")
 
             val response = apiService.syncEmbeddings()
 
-            Log.d(TAG, "Response code: ${response.code()}")
 
             if (response.isSuccessful && response.body() != null) {
                 val data = response.body()!!
-                Log.d(TAG, "✓ Synced ${data.count} embeddings")
                 Result.success(data)
             } else {
                 val errorBody = response.errorBody()?.string()
@@ -389,7 +365,6 @@ class AttendanceRepository {
         similarity: Float
     ): Result<AttendanceResponse> {
         return try {
-            Log.d(TAG, "Creating attendance from device verification: user=$odId, type=$type, distance=$distance")
 
             val request = VerifyDeviceRequest(
                 odId = odId,
@@ -400,10 +375,8 @@ class AttendanceRepository {
 
             val response = apiService.verifyDevice(request)
 
-            Log.d(TAG, "Response code: ${response.code()}")
 
             if (response.isSuccessful && response.body() != null) {
-                Log.d(TAG, "✓ Device-verified attendance created successfully")
                 Result.success(response.body()!!)
             } else {
                 val errorBody = response.errorBody()?.string()
@@ -473,7 +446,6 @@ class AttendanceRepository {
         allMatchesJson: String
     ): Result<LogAttemptResponse> {
         return try {
-            Log.d(TAG, "Logging face match attempt: type=$attemptType, success=$success")
 
             val request = LogAttemptRequest(
                 attemptType = attemptType,
@@ -490,7 +462,6 @@ class AttendanceRepository {
             val response = apiService.logAttempt(request)
 
             if (response.isSuccessful && response.body() != null) {
-                Log.d(TAG, "✓ Attempt logged successfully: ${response.body()!!.id}")
                 Result.success(response.body()!!)
             } else {
                 val errorBody = response.errorBody()?.string()
@@ -512,15 +483,12 @@ class AttendanceRepository {
      */
     suspend fun getUserSchedule(userId: String): Result<UserScheduleResponse> {
         return try {
-            Log.d(TAG, "Getting schedule for user: $userId")
 
             val response = apiService.getUserSchedule(userId)
 
-            Log.d(TAG, "Response code: ${response.code()}")
 
             if (response.isSuccessful && response.body() != null) {
                 val data = response.body()!!
-                Log.d(TAG, "✓ Schedule retrieved: hasSchedule=${data.hasSchedule}, checkOutTime=${data.checkOutTime}")
                 Result.success(data)
             } else {
                 val errorBody = response.errorBody()?.string()

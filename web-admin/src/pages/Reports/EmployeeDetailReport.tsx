@@ -47,14 +47,11 @@ export default function EmployeeDetailReport() {
   const loadEmployees = async () => {
     try {
       const data = await employeesApi.getAll();
-      console.log('All employees:', data);
       // Show all active users (employees get attendance records)
       const activeEmployees = data.filter(emp => emp.isActive !== false);
-      console.log('Filtered employees:', activeEmployees);
       setEmployees(activeEmployees);
     } catch (error) {
       toast.error('Gagal memuat daftar karyawan');
-      console.error('Error loading employees:', error);
     } finally {
       setLoadingEmployees(false);
     }
@@ -108,7 +105,6 @@ export default function EmployeeDetailReport() {
       }
     } catch (error) {
       toast.error('Gagal memuat laporan');
-      console.error(error);
     } finally {
       setLoading(false);
     }

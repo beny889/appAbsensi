@@ -72,7 +72,6 @@ export default function Holidays() {
       const activeEmployees = data.filter(emp => emp.isActive !== false);
       setEmployees(activeEmployees);
     } catch (error) {
-      console.error('Failed to load employees', error);
     }
   };
 
@@ -85,7 +84,6 @@ export default function Holidays() {
       setHolidays(sortedData);
     } catch (error) {
       toast.error('Gagal memuat data hari libur');
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -154,7 +152,6 @@ export default function Holidays() {
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || 'Terjadi kesalahan';
       toast.error(errorMsg);
-      console.error(error);
     }
   };
 
@@ -167,7 +164,6 @@ export default function Holidays() {
       } catch (error: any) {
         const errorMsg = error.response?.data?.message || 'Gagal menghapus hari libur';
         toast.error(errorMsg);
-        console.error(error);
       }
     }
   };

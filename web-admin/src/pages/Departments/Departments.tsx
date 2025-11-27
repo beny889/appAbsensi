@@ -55,7 +55,6 @@ export default function Departments() {
       setDepartments(data);
     } catch (error) {
       toast.error('Gagal memuat data departemen');
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -104,7 +103,6 @@ export default function Departments() {
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || 'Terjadi kesalahan';
       toast.error(errorMsg);
-      console.error(error);
     }
   };
 
@@ -127,7 +125,6 @@ export default function Departments() {
       } catch (error: any) {
         const errorMsg = error.response?.data?.message || 'Gagal menghapus departemen';
         toast.error(errorMsg);
-        console.error(error);
       }
     }
   };

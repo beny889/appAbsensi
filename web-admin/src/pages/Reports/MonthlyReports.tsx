@@ -56,7 +56,6 @@ export default function MonthlyReports() {
       }
     } catch (error) {
       toast.error('Gagal memuat data');
-      console.error(error);
     } finally {
       setLoading(false);
     }

@@ -49,7 +49,6 @@ class FaceRecognitionHelper(private val context: Context) {
      */
     fun initialize(useGpu: Boolean = false) {
         if (isInitialized) {
-            Log.d(TAG, "FaceRecognitionHelper already initialized")
             return
         }
 
@@ -61,13 +60,9 @@ class FaceRecognitionHelper(private val context: Context) {
                 try {
                     gpuDelegate = GpuDelegate()
                     options.addDelegate(gpuDelegate)
-                    Log.d(TAG, "GPU delegate enabled")
                 } catch (e: Exception) {
-                    Log.w(TAG, "GPU delegate not available, using CPU: ${e.message}")
                     gpuDelegate = null
                 } catch (e: Error) {
-                    // Catch NoClassDefFoundError for missing GPU classes
-                    Log.w(TAG, "GPU delegate classes not found, using CPU: ${e.message}")
                     gpuDelegate = null
                 }
             }
@@ -79,8 +74,6 @@ class FaceRecognitionHelper(private val context: Context) {
             val model = loadModelFile()
             interpreter = Interpreter(model, options)
             isInitialized = true
-
-            Log.d(TAG, "FaceRecognitionHelper initialized successfully (GPU: ${gpuDelegate != null})")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize FaceRecognitionHelper: ${e.message}")
             throw e
@@ -119,7 +112,6 @@ class FaceRecognitionHelper(private val context: Context) {
             }
         }
 
-        Log.d(TAG, "Extracted embedding with ${embedding.size} dimensions")
         return embedding
     }
 
@@ -158,7 +150,6 @@ class FaceRecognitionHelper(private val context: Context) {
     ): Pair<Boolean, Float> {
         val distance = calculateDistance(embedding1, embedding2)
         val isMatch = distance < threshold
-        Log.d(TAG, "Face comparison: distance=$distance, threshold=$threshold, isMatch=$isMatch")
         return Pair(isMatch, distance)
     }
 
@@ -181,8 +172,6 @@ class FaceRecognitionHelper(private val context: Context) {
 
         for ((userId, embedding) in storedEmbeddings) {
             val distance = calculateDistance(targetEmbedding, embedding)
-            Log.d(TAG, "Comparing with user $userId: distance=$distance")
-
             if (distance < bestDistance) {
                 bestDistance = distance
                 bestMatch = userId
@@ -190,10 +179,8 @@ class FaceRecognitionHelper(private val context: Context) {
         }
 
         return if (bestMatch != null && bestDistance < threshold) {
-            Log.d(TAG, "Best match found: userId=$bestMatch, distance=$bestDistance")
             Pair(bestMatch, bestDistance)
         } else {
-            Log.d(TAG, "No match found. Best distance: $bestDistance (threshold: $threshold)")
             null
         }
     }
@@ -241,13 +228,10 @@ class FaceRecognitionHelper(private val context: Context) {
                     if (distance < userBestDistance) {
                         userBestDistance = distance
                     }
-                    Log.d(TAG, "User $userId emb[$index]: distance=$distance")
                 } catch (e: Exception) {
-                    Log.w(TAG, "Error comparing embedding $index for user $userId: ${e.message}")
+                    // Skip invalid embedding
                 }
             }
-
-            Log.d(TAG, "User $userId best distance: $userBestDistance (from ${embeddingsList.size} embeddings)")
 
             if (userBestDistance < bestDistance) {
                 bestDistance = userBestDistance
@@ -256,10 +240,8 @@ class FaceRecognitionHelper(private val context: Context) {
         }
 
         return if (bestMatch != null && bestDistance < threshold) {
-            Log.d(TAG, "Best match found: userId=$bestMatch, distance=$bestDistance")
             Pair(bestMatch, bestDistance)
         } else {
-            Log.d(TAG, "No match found. Best distance: $bestDistance (threshold: $threshold)")
             null
         }
     }
@@ -284,29 +266,20 @@ class FaceRecognitionHelper(private val context: Context) {
         var bestMatch: String? = null
         var bestDistance = Float.MAX_VALUE
 
-        Log.d(TAG, "═══════════════════════════════════════════")
-        Log.d(TAG, "🔍 FACE MATCHING DEBUG LOG")
-        Log.d(TAG, "═══════════════════════════════════════════")
-        Log.d(TAG, "Threshold: $threshold (${(threshold * 100).toInt()}%)")
-        Log.d(TAG, "Total users to compare: ${storedMultiEmbeddings.size}")
-        Log.d(TAG, "───────────────────────────────────────────")
-
         for ((userId, embeddingsList) in storedMultiEmbeddings) {
-            // Find the best distance among all embeddings for this user
             var userBestDistance = Float.MAX_VALUE
 
-            for ((index, embedding) in embeddingsList.withIndex()) {
+            for (embedding in embeddingsList) {
                 try {
                     val distance = calculateDistance(targetEmbedding, embedding)
                     if (distance < userBestDistance) {
                         userBestDistance = distance
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Error comparing embedding $index for user $userId: ${e.message}")
+                    // Skip invalid embedding
                 }
             }
 
-            // Calculate similarity percentage: (1 - distance/2) * 100, clamped to 0-100
             val similarity = ((1 - userBestDistance / 2) * 100).toInt().coerceIn(0, 100)
             val isMatch = userBestDistance < threshold
             val userName = userNames[userId] ?: "Unknown"
@@ -325,22 +298,11 @@ class FaceRecognitionHelper(private val context: Context) {
             }
         }
 
-        // Sort by distance (best matches first)
         allMatches.sortBy { it.distance }
 
-        // Log ranking
-        Log.d(TAG, "📊 RANKING (sorted by distance):")
-        allMatches.forEachIndexed { index, match ->
-            val status = if (match.isMatch) "✓ MATCH" else "✗ NO MATCH"
-            Log.d(TAG, "${index + 1}. ${match.name}: distance=${"%.4f".format(match.distance)} | similarity=${match.similarity}% | $status")
-        }
-        Log.d(TAG, "═══════════════════════════════════════════")
-
         val result = if (bestMatch != null && bestDistance < threshold) {
-            Log.d(TAG, "✓ Best match: ${userNames[bestMatch]} (distance=${"%.4f".format(bestDistance)})")
             Pair(bestMatch, bestDistance)
         } else {
-            Log.d(TAG, "✗ No match found. Best distance: ${"%.4f".format(bestDistance)} (threshold: $threshold)")
             null
         }
 
@@ -392,6 +354,5 @@ class FaceRecognitionHelper(private val context: Context) {
         gpuDelegate?.close()
         gpuDelegate = null
         isInitialized = false
-        Log.d(TAG, "FaceRecognitionHelper closed")
     }
 }

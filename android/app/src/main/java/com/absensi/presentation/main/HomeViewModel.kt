@@ -41,14 +41,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Fetching all today's attendance (public)...")
 
                 // Use public endpoint - no token required
                 val result = attendanceRepository.getTodayAllAttendance()
 
                 result.fold(
                     onSuccess = { attendanceList ->
-                        Log.d(TAG, "✓ Fetched ${attendanceList.size} attendance records (grouped by user)")
 
                         // Convert grouped API response to domain model
                         // Response is already grouped by user with checkInTime and checkOutTime

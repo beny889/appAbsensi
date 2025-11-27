@@ -36,10 +36,8 @@ export class FaceRegistrationService {
       // Parse and log each embedding for debugging
       const parsedEmbeddings = dto.faceEmbeddings.map((e, index) => {
         const parsed = JSON.parse(e);
-        console.log(`[Registration] Embedding ${index + 1}: ${parsed.length} dimensions`);
         return parsed;
       });
-      console.log(`[Registration] Total ${parsedEmbeddings.length} embeddings received`);
 
       faceEmbeddings = JSON.stringify(parsedEmbeddings);
       faceEmbedding = dto.faceEmbeddings[0]; // First one for backward compatibility
