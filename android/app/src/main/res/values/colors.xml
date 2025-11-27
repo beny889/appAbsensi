@@ -17,5 +17,5 @@
     <color name="text_secondary">#757575</color>
 
     <!-- Launcher icon background -->
-    <color name="ic_launcher_background">#2196F3</color>
+    <color name="ic_launcher_background">#FFFFFF</color>
 </resources>
