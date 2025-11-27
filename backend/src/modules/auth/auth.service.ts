@@ -2,10 +2,11 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma/prisma.service';
-import { LoginDto, RegisterDto } from './dto';
+import { LoginDto, RegisterDto, ChangePasswordDto } from './dto';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -122,5 +123,37 @@ export class AuthService {
   ): Promise<string> {
     const payload = { sub: userId, email, role };
     return this.jwtService.sign(payload);
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User tidak ditemukan');
+    }
+
+    if (!user.password) {
+      throw new BadRequestException('User ini tidak memiliki password');
+    }
+
+    const passwordValid = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!passwordValid) {
+      throw new BadRequestException('Password lama tidak sesuai');
+    }
+
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('Password baru tidak boleh sama dengan password lama');
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Password berhasil diubah' };
   }
 }

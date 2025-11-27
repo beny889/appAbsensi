@@ -1,6 +1,595 @@
 # 📝 Changelog - Sistem Absensi
 
-## [LATEST] On-Device Face Recognition (MobileFaceNet) (2025-11-26)
+## [LATEST] Face Match Logs & Camera Lifecycle Improvements (2025-11-27)
+
+### 🎯 Major Feature: Face Match Attempt Logs
+
+#### ✅ Face Match Logs di Web Admin
+**Admin dapat melihat semua percobaan face matching (berhasil/gagal) untuk debugging**
+
+- ✅ **Database**: New `FaceMatchAttempt` model untuk log setiap attempt
+- ✅ **Backend**: Endpoint `POST /api/attendance/log-attempt` dan `GET /api/attendance/face-match-attempts`
+- ✅ **Web Admin**: Halaman baru "Face Match Logs" dengan detail setiap percobaan
+- ✅ **Android**: Kirim log setiap kali face matching selesai
+- Location: `web-admin/src/pages/FaceMatchLogs/FaceMatchLogs.tsx`
+- Location: `backend/src/modules/attendance/attendance.service.ts`
+
+**Data yang Di-log**:
+- Attempt type (CHECK_IN / CHECK_OUT)
+- Success/failure status
+- Matched user (jika sukses)
+- Threshold yang digunakan
+- Best distance & similarity
+- Total users dibandingkan
+- Detail semua perbandingan (ranking by similarity)
+
+**Web Admin UI**:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 📋 Face Match Attempt Logs                                      │
+├─────────────────────────────────────────────────────────────────┤
+│ Waktu           │ Tipe     │ Status │ Match        │ Similarity │
+│ 27/11 08:01:23  │ CHECK_IN │ ✓      │ Beny Susanto │ 82%        │
+│ 27/11 08:00:45  │ CHECK_IN │ ✗      │ -            │ 45%        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 🎯 Major Fix: Camera Lifecycle Management
+
+#### ✅ Fix App Crash saat Switch Mode (Masuk ↔ Pulang)
+**App tidak crash lagi saat user switch antara mode Masuk dan Pulang**
+
+- ✅ **Root Cause**: Camera resources tidak di-release saat Activity pause
+- ✅ **Fix**: Added proper `onPause()` and `onResume()` lifecycle handlers
+- ✅ **Behavior**: Camera unbind saat pause, restart saat resume
+- Location: `android/.../presentation/camera/CameraActivity.kt`
+
+**New Lifecycle Handlers**:
+```kotlin
+override fun onPause() {
+    super.onPause()
+    isProcessing = true
+    isShowingConfirmationDialog = false
+    cameraProvider?.unbindAll()  // Release camera resources
+}
+
+override fun onResume() {
+    super.onResume()
+    isProcessing = false
+    isShowingConfirmationDialog = false
+    isProfileConfirmed = false
+    stableFrameCount = 0
+    lastFaceBounds = null
+    isFaceDetected = false
+    isCountingDown = false
+    if (cameraProvider != null) {
+        startCamera()  // Restart camera
+    }
+}
+```
+
+**Impact**:
+- ✅ Tidak crash saat buka Masuk → klik Batal → buka Pulang
+- ✅ Camera resources properly released
+- ✅ State reset dengan benar saat resume
+
+---
+
+### 🎯 Major Fix: Dialog Overlap Race Condition
+
+#### ✅ Fix Multiple Dialog Overlap
+**Dialog konfirmasi tidak lagi muncul bersamaan (overlap)**
+
+- ✅ **Root Cause**: Race condition - multiple camera frames pass check SEBELUM flag di-set
+- ✅ **Fix**: Guard check di DALAM fungsi `showIdentityConfirmationDialog`
+- ✅ **Additional**: Added OnDismissListener untuk reset flag dengan benar
+- Location: `android/.../presentation/camera/CameraActivity.kt`
+
+**Before (Bug)**:
+```
+1. Frame A → pass check (flag=false) → start async face detection
+2. Frame B → pass check (flag=false) → start async face detection
+3. Frame A selesai → set flag=true → show Dialog A
+4. Frame B selesai → TIDAK check flag lagi → show Dialog B (OVERLAP!)
+```
+
+**After (Fixed)**:
+```kotlin
+private fun showIdentityConfirmationDialog(...) {
+    // Guard: Check flag INSIDE function
+    if (isShowingConfirmationDialog || isFinishing || isDestroyed) {
+        Log.w(TAG, "Dialog already showing or Activity finishing, skipping")
+        return
+    }
+    isShowingConfirmationDialog = true  // Set flag here
+
+    try {
+        // ... show dialog ...
+        dialog.setOnDismissListener {
+            if (isShowingConfirmationDialog) {
+                isShowingConfirmationDialog = false
+            }
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to show dialog: ${e.message}")
+        isShowingConfirmationDialog = false
+    }
+}
+```
+
+---
+
+### 🎯 Enhancement: Early Checkout Flow dengan getUserSchedule
+
+#### ✅ Endpoint Baru untuk Check Schedule
+**Early checkout sekarang menggunakan endpoint terpisah untuk check jadwal**
+
+- ✅ **Problem**: `verifyFaceOnly` melakukan face recognition lagi di server (bisa gagal dengan threshold berbeda)
+- ✅ **Solution**: Endpoint baru `GET /api/attendance/schedule/:userId` yang hanya return jadwal
+- ✅ **Benefit**: Lebih cepat, tidak redundant face matching
+- Location: `backend/src/modules/attendance/attendance.controller.ts`
+- Location: `android/.../data/repository/AttendanceRepository.kt`
+
+**New Endpoint**:
+```
+GET /api/attendance/schedule/:userId
+
+Response:
+{
+  "hasSchedule": true,
+  "checkInTime": "08:00",
+  "checkOutTime": "17:00",
+  "departmentName": "IT Department",
+  "message": null
+}
+```
+
+**Android Usage**:
+```kotlin
+// Sebelum (redundant face recognition)
+attendanceRepository.verifyFaceOnly(faceImageBase64)
+
+// Sesudah (langsung check schedule)
+attendanceRepository.getUserSchedule(matchedOdId)
+```
+
+---
+
+### 🔧 Bug Fixes
+
+#### Fixed: PrismaService Missing faceMatchAttempt Getter
+- **Issue**: `Property 'faceMatchAttempt' does not exist on type 'PrismaService'`
+- **Fix**: Added getter `get faceMatchAttempt() { return this.prisma.faceMatchAttempt; }`
+- Location: `backend/src/prisma/prisma.service.ts`
+
+#### Fixed: Early Checkout Dialog Not Showing
+- **Issue**: Alert early checkout tidak muncul meskipun pulang lebih awal
+- **Root Cause**: `verifyFaceOnly` melakukan server-side face recognition yang bisa gagal
+- **Fix**: Gunakan `getUserSchedule(userId)` untuk check jadwal tanpa face matching
+
+---
+
+## [Previous] Face Recognition Flow Improvements (2025-11-26)
+
+### 🎯 Major Feature: Permanent Face Detection Stop After Profile Confirmation
+
+#### ✅ Face Detection Stop Total Setelah Konfirmasi Profil
+**Face recognition sekarang BERHENTI TOTAL setelah user konfirmasi profil ("Ya, ini saya")**
+
+- ✅ **New Flag**: `isProfileConfirmed` - permanent block setelah konfirmasi
+- ✅ **Berlaku untuk MASUK dan PULANG** - konsisten di kedua mode
+- ✅ **Kamera tetap tampil** - tapi tidak detect wajah lagi
+- ✅ **Harus kembali ke Home** - untuk bisa scan ulang
+- Location: `android/.../presentation/camera/CameraActivity.kt`
+
+**Flow Setelah Fix**:
+```
+Face Detected & Stable
+    │
+    ▼
+processAttendance()
+    │
+    ▼
+Face MATCHED → showIdentityConfirmationDialog()
+    │
+    ├── onCancel: "Bukan saya"
+    │   └── isProfileConfirmed tetap false
+    │       └── Face detection AKTIF lagi (bisa scan ulang)
+    │
+    └── onConfirm: "Ya, ini saya"
+        │
+        └── isProfileConfirmed = true  ← PERMANENT BLOCK
+            │
+            └── Face detection STOP TOTAL
+                │
+                ├── CHECK_IN → proceed → success/error dialog → finish
+                │
+                └── CHECK_OUT:
+                    ├── Not early → proceed → success/error dialog → finish
+                    │
+                    └── Early → showEarlyCheckoutConfirmation()
+                        │ (face detection tetap STOP karena isProfileConfirmed = true)
+                        │
+                        ├── Confirm → proceed → success dialog → finish
+                        └── Cancel → kembali ke kamera TAPI face detection TETAP STOP
+```
+
+**Perubahan Kode**:
+1. Tambah variabel `isProfileConfirmed = false` (line 60)
+2. Update `processImageProxy()` untuk cek flag ini (line 375)
+3. Set `isProfileConfirmed = true` di semua callback `onConfirm`
+
+---
+
+#### ✅ Early Checkout Check SEBELUM Dialog Konfirmasi
+**Dialog early checkout sekarang muncul bersamaan dengan konfirmasi profil, bukan setelahnya**
+
+- ✅ **CHECK_OUT Flow Baru**: Cek early SEBELUM show dialog
+- ✅ **Jika Early**: Dialog early checkout langsung muncul (dengan info identitas)
+- ✅ **Jika Not Early**: Dialog konfirmasi identitas normal
+- ✅ **Cancel Early Dialog**: `isProfileConfirmed = true` - face detection tetap stop
+- Location: `android/.../presentation/camera/CameraActivity.kt:690-803`
+
+**Before Fix**:
+```
+1. Face matched → Dialog konfirmasi identitas
+2. User konfirmasi → Check jadwal
+3. Jika early → Dialog early checkout (terlambat!)
+```
+
+**After Fix**:
+```
+1. Face matched → Check jadwal DULU
+2. Jika early → Dialog early checkout (dengan info user)
+3. Jika not early → Dialog konfirmasi identitas
+```
+
+---
+
+### Comparison: Flags untuk Block Face Detection
+
+| Flag | Behavior | Reset? |
+|------|----------|--------|
+| `isProcessing` | Block saat proses async | Ya, di-reset saat selesai |
+| `isShowingConfirmationDialog` | Block saat dialog tampil | Ya, di-reset saat dialog close |
+| **`isProfileConfirmed`** | **Block permanen setelah konfirmasi** | **TIDAK** - sampai Activity finish |
+
+---
+
+## Dynamic Threshold Sync & Bug Fixes (2025-11-26)
+
+### 🎯 Major Feature: Dynamic Threshold Sync
+
+#### ✅ Sync Threshold dari Backend saat "Coba Lagi"
+**Ketika user klik tombol "Coba Lagi" di dialog error, aplikasi akan sync threshold terbaru dari backend**
+
+- ✅ **Sync Settings**: Mengambil `faceDistanceThreshold` dari endpoint `/api/attendance/sync-embeddings`
+- ✅ **Update Local**: Menyimpan threshold ke SharedPreferences
+- ✅ **Update Embeddings**: Juga memperbarui embeddings user jika ada perubahan
+- ✅ **Feedback**: Toast message "Pengaturan diperbarui. Silakan coba lagi."
+- ✅ **Fallback**: Jika sync gagal, tetap gunakan threshold tersimpan
+- Location: `android/.../presentation/camera/CameraActivity.kt:1941-2029`
+
+**Flow Sync Threshold**:
+```
+1. User gagal verifikasi wajah → Dialog error muncul
+2. User klik "Coba Lagi"
+3. App call /api/attendance/sync-embeddings
+4. App simpan settings.faceDistanceThreshold ke local storage
+5. App reset state kamera untuk scan ulang
+6. User scan wajah dengan threshold terbaru
+```
+
+**API Response yang Digunakan**:
+```json
+{
+  "count": 2,
+  "embeddings": [...],
+  "syncTimestamp": 1764174551290,
+  "settings": {
+    "faceDistanceThreshold": 0.35,
+    "updatedAt": 1764174551290
+  }
+}
+```
+
+---
+
+### 🔧 Bug Fixes
+
+#### Fixed: Face Detection Berjalan Saat Dialog Konfirmasi Terbuka
+- **Issue**: Ketika dialog konfirmasi identitas muncul, kamera tetap mendeteksi wajah. Jika kamera bergerak, dialog error bisa muncul menimpa dialog konfirmasi.
+- **Root Cause**: `isProcessing = false` di-set sebelum dialog muncul, sehingga `processImageProxy` tetap berjalan
+- **Fix**: Tambah flag `isShowingConfirmationDialog` untuk block face detection saat dialog terbuka
+- Location: `android/.../presentation/camera/CameraActivity.kt`
+
+**Perubahan**:
+1. Tambah state variable `isShowingConfirmationDialog`
+2. Update `processImageProxy()` untuk cek flag ini
+3. Set flag `true` sebelum menampilkan dialog konfirmasi
+4. Reset flag `false` di callback onConfirm dan onCancel
+5. Apply ke semua dialog: `showIdentityConfirmationDialog`, `showEarlyCheckoutConfirmation`, `showEarlyCheckoutConfirmationOnDevice`
+
+---
+
+## UI Improvements & Bug Fixes (2025-11-26)
+
+### 🎨 UI Improvements
+
+#### Face Recognition Settings - Similarity Display
+**Tampilan pengaturan Face Recognition diubah dari "Distance" ke "Similarity" untuk kemudahan pemahaman**
+
+- **Sebelum**: "Face Distance Threshold: 0.40 - Ketat"
+- **Sesudah**: "Face Similarity: 60% - Normal"
+- **Formula**: `Similarity = (1 - Distance) * 100`
+- **Benefit**: User lebih mudah memahami nilai percentage dibanding distance
+- Location: `web-admin/src/pages/Settings/Settings.tsx`
+
+**Conversion Table**:
+| Distance | Similarity | Label |
+|----------|------------|-------|
+| 0.10 | 90% | Sangat Ketat |
+| 0.30 | 70% | Ketat |
+| 0.50 | 50% | Normal |
+| 0.70 | 30% | Longgar |
+| 1.00 | 0% | Sangat Longgar |
+
+---
+
+### 🔧 Bug Fixes
+
+#### Fixed: Absent Count Off-by-One Error
+- **Issue**: Perhitungan absen kurang 1 hari (contoh: seharusnya 8, terlihat 7)
+- **Root Cause**: Kondisi `dateObj < today` tidak menghitung hari ini
+- **Fix**: Ubah ke `dateObj <= today` untuk include hari ini dalam perhitungan
+- Location: `backend/src/modules/reports/reports.service.ts:258`
+
+---
+
+## Multi-Employee Holiday & Bug Fixes (2025-11-26)
+
+### 🎯 Major Feature: Multi-Employee Holiday Support
+
+#### ✅ Holiday Per-Karyawan
+**Admin dapat mengatur hari libur untuk semua karyawan atau karyawan tertentu saja**
+
+- ✅ **Database**: New `HolidayUser` junction table untuk relasi many-to-many
+- ✅ **Holiday Model**: Added `isGlobal` field (true = semua karyawan)
+- ✅ **Backend**: Full support untuk CRUD dengan isGlobal dan userIds
+- ✅ **Frontend**: Checkbox "Libur untuk semua karyawan" + multi-select karyawan
+- Location: `backend/prisma/schema.prisma`
+- Location: `backend/src/modules/holidays/holidays.service.ts`
+- Location: `web-admin/src/pages/Holidays/Holidays.tsx`
+
+**Database Schema**:
+```prisma
+model Holiday {
+  id          String        @id @default(cuid())
+  date        DateTime      @unique
+  name        String
+  description String?
+  isGlobal    Boolean       @default(true)
+  users       HolidayUser[]
+}
+
+model HolidayUser {
+  id        String   @id @default(cuid())
+  holidayId String
+  userId    String
+  holiday   Holiday  @relation(...)
+  user      User     @relation(...)
+  @@unique([holidayId, userId])
+}
+```
+
+**API Updates**:
+```
+POST /api/holidays
+Body: { date, name, description?, isGlobal: boolean, userIds?: string[] }
+
+PUT /api/holidays/:id
+Body: { date?, name?, description?, isGlobal?: boolean, userIds?: string[] }
+```
+
+---
+
+### 🔧 Bug Fixes
+
+#### Fixed: Holiday Update Not Saving (isGlobal Changes)
+- **Issue**: Setelah edit holiday, perubahan isGlobal tidak tersimpan
+- **Root Cause**: `holidays.service.ts` ter-revert ke versi lama tanpa logic isGlobal/userIds
+- **Fix**: Restore full implementation dengan HolidayUser junction table handling
+- Location: `backend/src/modules/holidays/holidays.service.ts`
+
+#### Fixed: Android Card Absensi Not Showing
+- **Issue**: Card riwayat absensi tidak muncul di Android app
+- **Root Cause**: Race condition - `loadTodayAttendance()` dipanggil di `init{}` sebelum observer ready
+- **Fix**:
+  - Removed `loadTodayAttendance()` dari HomeViewModel init block
+  - Added error observer di HomeFragment
+  - Data sudah di-load di `onResume()` yang sudah benar
+- Location: `android/.../HomeViewModel.kt`, `android/.../HomeFragment.kt`
+
+#### Fixed: PrismaService Missing holidayUser Getter
+- **Issue**: TypeScript error "Property 'holidayUser' does not exist on type 'PrismaService'"
+- **Root Cause**: PrismaService menggunakan manual getter pattern, belum ada getter untuk holidayUser
+- **Fix**: Added `get holidayUser() { return this.prisma.holidayUser; }`
+- Location: `backend/src/prisma/prisma.service.ts`
+
+---
+
+### 🎨 UI Improvements
+
+#### Android Header Card Padding
+- Reduced vertical padding/margin pada header card di Home screen
+- LinearLayout padding: `12dp` → `8dp`
+- tv_time marginTop: `4dp` → `0dp`
+- tv_date marginTop: `8dp` → `2dp`
+- Location: `android/.../res/layout/fragment_home.xml`
+
+---
+
+## Settings Module & UI Improvements (2025-11-26)
+
+### 🎯 Major Feature: Settings Module
+
+#### ✅ Face Similarity Threshold Configuration
+**Admin dapat mengkonfigurasi threshold pencocokan wajah secara dinamis**
+
+- ✅ **Database**: Settings table dengan key-value pairs
+- ✅ **Backend**: Dynamic threshold dari database (bukan hardcoded)
+- ✅ **Frontend**: Slider interface dengan range 0.1 - 1.0
+- ✅ **Realtime**: Perubahan langsung berlaku tanpa restart
+- Location: `backend/src/modules/settings/`
+- Location: `web-admin/src/pages/Settings/Settings.tsx`
+
+**API Endpoints**:
+```
+GET /api/settings                      # Get all settings
+GET /api/settings/similarity-threshold # Get face threshold
+PUT /api/settings/similarity-threshold # Update face threshold (0.1-1.0)
+```
+
+#### ✅ Change Admin Password
+**Admin dapat mengubah password akun melalui web panel**
+
+- ✅ **Validation**: Current password verification
+- ✅ **Security**: Minimum 6 karakter
+- ✅ **Feedback**: Success/error messages
+- Location: `backend/src/modules/auth/auth.controller.ts`
+- Location: `web-admin/src/pages/Settings/Settings.tsx`
+
+**API Endpoint**:
+```
+POST /api/auth/change-password
+Body: { currentPassword: string, newPassword: string }
+```
+
+---
+
+### 🎯 Major Feature: Collapsible Reports Menu
+
+#### ✅ Unified Reports Navigation
+**3 menu laporan digabung menjadi 1 menu utama dengan collapse**
+
+- ✅ **Main Menu**: "Laporan" dengan icon Assessment
+- ✅ **Sub-menu**: Harian, Bulanan, Detail Karyawan
+- ✅ **Auto-expand**: Menu otomatis expand saat di halaman report
+- ✅ **Visual Indicator**: Highlight saat active
+- Location: `web-admin/src/components/layout/Layout.tsx`
+
+**Menu Structure**:
+```
+📊 Laporan
+  ├── 📅 Harian
+  ├── 📆 Bulanan
+  └── 👤 Detail Karyawan
+```
+
+---
+
+### 🎯 Enhancement: Dynamic Date Columns
+
+#### ✅ Smart Column Display for Monthly Report
+**Kolom tanggal pada laporan bulanan sekarang dinamis**
+
+- ✅ **Current Month**: Hanya tampilkan kolom sampai hari ini
+- ✅ **Past Months**: Tampilkan semua kolom (1-28/30/31)
+- ✅ **Future Months**: Tidak tampilkan kolom tanggal
+- ✅ **API Field**: `displayDays` menunjukkan jumlah kolom yang ditampilkan
+- Location: `backend/src/modules/reports/reports.service.ts`
+- Location: `web-admin/src/pages/Reports/MonthlyReports.tsx`
+
+**Example**:
+```
+Bulan November 2025, hari ini tanggal 26:
+- Kolom yang ditampilkan: 1, 2, 3, ... 26
+- Kolom 27-30 tidak ditampilkan (belum terjadi)
+```
+
+---
+
+### 🔧 Bug Fixes
+
+#### Fixed: Holiday-Based Attendance Marking
+- **Issue**: Weekend (Sabtu/Minggu) otomatis ditandai sebagai libur
+- **Fix**: Kode "L" hanya untuk tanggal dari tabel holidays
+- **Impact**: Weekend tanpa entry di tabel holidays = dianggap absent
+- Location: `backend/src/modules/reports/reports.service.ts`
+
+---
+
+## Holiday Management & Monthly Report Preview (2025-11-26)
+
+### 🎯 Major Feature: Holiday Management
+
+#### ✅ Holiday CRUD System
+**Admin dapat mengelola hari libur nasional dan cuti bersama**
+
+- ✅ **Database**: New `Holiday` model with unique date constraint
+- ✅ **Backend**: Full CRUD API for holidays
+- ✅ **Frontend**: New Holidays page with year filter
+- ✅ **Integration**: Holidays excluded from working days in reports
+- Location: `backend/src/modules/holidays/`
+- Location: `web-admin/src/pages/Holidays/Holidays.tsx`
+
+**API Endpoints**:
+```
+GET    /api/holidays              # List all holidays
+GET    /api/holidays?year=YYYY    # Filter by year
+POST   /api/holidays              # Create holiday
+PUT    /api/holidays/:id          # Update holiday
+DELETE /api/holidays/:id          # Delete holiday
+```
+
+**Database Schema**:
+```prisma
+model Holiday {
+  id          String   @id @default(cuid())
+  date        DateTime @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+```
+
+### 🎯 Major Feature: Monthly Report Preview
+
+#### ✅ Preview Before Download
+**Admin dapat preview data sebelum download PDF**
+
+- ✅ **Preview Mode**: Lihat data dalam grid sebelum export
+- ✅ **Attendance Grid**: Day-by-day status per employee
+- ✅ **Status Colors**:
+  - Hijau: Hadir
+  - Merah: Absent
+  - Orange: Terlambat/Pulang Awal
+  - Abu-abu: Hari Libur
+- ✅ **Summary**: Late count, early count, absent count per employee
+- ✅ **PDF Export**: Download setelah review
+- Location: `web-admin/src/pages/Reports/MonthlyReports.tsx`
+- Location: `backend/src/modules/reports/reports.service.ts`
+
+**New API Endpoint**:
+```
+GET /api/reports/monthly-grid?year=YYYY&month=MM
+```
+
+---
+
+### 🔧 Bug Fixes
+
+#### Fixed: Weekend Detection Issue
+- **Issue**: Sabtu/Minggu otomatis dihitung sebagai hari libur
+- **Fix**: Hanya gunakan holidays dari database, tidak auto-detect weekend
+- Location: `backend/src/modules/reports/reports.service.ts`
+
+---
+
+## On-Device Face Recognition (MobileFaceNet) (2025-11-26)
 
 ### 🎯 Major Feature: On-Device Face Recognition
 

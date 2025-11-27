@@ -10,6 +10,8 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { FaceRegistrationModule } from './modules/face-registration/face-registration.module';
 import { WorkScheduleModule } from './modules/work-schedule/work-schedule.module';
 import { DepartmentModule } from './modules/department/department.module';
+import { HolidaysModule } from './modules/holidays/holidays.module';
+import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { DepartmentModule } from './modules/department/department.module';
     FaceRegistrationModule,
     WorkScheduleModule,
     DepartmentModule,
+    HolidaysModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

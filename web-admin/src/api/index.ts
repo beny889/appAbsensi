@@ -85,7 +85,94 @@ export const reportsApi = {
     });
     return response.data;
   },
+
+  getMonthlyGrid: async (year: number, month: number): Promise<MonthlyAttendanceGrid> => {
+    const response = await apiClient.get<MonthlyAttendanceGrid>('/reports/monthly-grid', {
+      params: { year, month },
+    });
+    return response.data;
+  },
+
+  getEmployeeDetailReport: async (
+    userId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<import('@/types').EmployeeDetailReport> => {
+    const response = await apiClient.get(`/reports/employee/${userId}/details`, {
+      params: { startDate, endDate },
+    });
+    return response.data;
+  },
+
+  getDashboardPresence: async (): Promise<DashboardPresence> => {
+    const response = await apiClient.get<DashboardPresence>('/reports/dashboard-presence');
+    return response.data;
+  },
 };
+
+// Types for Monthly Grid
+export interface DailyStatus {
+  date: number;
+  isWeekend: boolean;
+  checkIn: boolean;
+  checkOut: boolean;
+  isLate: boolean;
+  lateMinutes: number;
+  isEarly: boolean;
+  earlyMinutes: number;
+}
+
+export interface EmployeeSummary {
+  lateCount: number;
+  totalLateMinutes: number;
+  earlyCount: number;
+  totalEarlyMinutes: number;
+  absentCount: number;
+}
+
+export interface EmployeeGridData {
+  id: string;
+  name: string;
+  department: string;
+  dailyStatus: DailyStatus[];
+  summary: EmployeeSummary;
+}
+
+export interface MonthlyAttendanceGrid {
+  year: number;
+  month: number;
+  daysInMonth: number;
+  displayDays: number;
+  workingDays: number;
+  employees: EmployeeGridData[];
+}
+
+// Dashboard Presence Types
+export interface EmployeeInStore {
+  id: string;
+  name: string;
+  faceImageUrl: string | null;
+  department: string;
+  checkInTime: string;
+  isLate: boolean;
+  lateMinutes: number;
+}
+
+export interface EmployeeNotInStore {
+  id: string;
+  name: string;
+  faceImageUrl: string | null;
+  department: string;
+  status: 'not_checked_in' | 'checked_out';
+  checkOutTime: string | null;
+  isEarlyCheckout: boolean;
+  earlyMinutes: number;
+}
+
+export interface DashboardPresence {
+  inStore: EmployeeInStore[];
+  notInStore: EmployeeNotInStore[];
+}
 
 // Face Registration API
 export const faceRegistrationApi = {
@@ -112,6 +199,14 @@ export const faceRegistrationApi = {
     data: import('@/types').RejectRegistrationDto
   ): Promise<{ message: string }> => {
     const response = await apiClient.post(`/face-registration/${id}/reject`, data);
+    return response.data;
+  },
+
+  replaceFace: async (
+    id: string,
+    userId: string
+  ): Promise<{ message: string; user: { id: string; name: string } }> => {
+    const response = await apiClient.post(`/face-registration/${id}/replace-face`, { userId });
     return response.data;
   },
 
@@ -153,6 +248,84 @@ export const departmentApi = {
   },
 };
 
+// Holiday Types
+export interface HolidayUser {
+  id: string;
+  userId: string;
+  user: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface Holiday {
+  id: string;
+  date: string;
+  name: string;
+  description?: string;
+  isGlobal: boolean;
+  users: HolidayUser[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateHolidayDto {
+  date: string;
+  name: string;
+  description?: string;
+  isGlobal?: boolean;
+  userIds?: string[];
+}
+
+export interface UpdateHolidayDto {
+  date?: string;
+  name?: string;
+  description?: string;
+  isGlobal?: boolean;
+  userIds?: string[];
+}
+
+// Holidays API
+export const holidaysApi = {
+  getAll: async (): Promise<Holiday[]> => {
+    const response = await apiClient.get<Holiday[]>('/holidays');
+    return response.data;
+  },
+
+  getByYear: async (year: number): Promise<Holiday[]> => {
+    const response = await apiClient.get<Holiday[]>('/holidays', {
+      params: { year },
+    });
+    return response.data;
+  },
+
+  getByMonth: async (year: number, month: number): Promise<Holiday[]> => {
+    const response = await apiClient.get<Holiday[]>('/holidays/month', {
+      params: { year, month },
+    });
+    return response.data;
+  },
+
+  getById: async (id: string): Promise<Holiday> => {
+    const response = await apiClient.get<Holiday>(`/holidays/${id}`);
+    return response.data;
+  },
+
+  create: async (data: CreateHolidayDto): Promise<Holiday> => {
+    const response = await apiClient.post<Holiday>('/holidays', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: UpdateHolidayDto): Promise<Holiday> => {
+    const response = await apiClient.put<Holiday>(`/holidays/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/holidays/${id}`);
+  },
+};
+
 // Work Schedule API
 export const workScheduleApi = {
   getAll: async (): Promise<WorkSchedule[]> => {
@@ -182,5 +355,70 @@ export const workScheduleApi = {
 
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/work-schedules/${id}`);
+  },
+};
+
+// Settings API
+export interface SettingItem {
+  id: string;
+  key: string;
+  value: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export const settingsApi = {
+  getAll: async (): Promise<SettingItem[]> => {
+    const response = await apiClient.get<SettingItem[]>('/settings');
+    return response.data;
+  },
+
+  getSimilarityThreshold: async (): Promise<{ value: number }> => {
+    const response = await apiClient.get<{ value: number }>('/settings/similarity-threshold');
+    return response.data;
+  },
+
+  updateSimilarityThreshold: async (value: number): Promise<{ message: string; value: number }> => {
+    const response = await apiClient.put<{ message: string; value: number }>(
+      '/settings/similarity-threshold',
+      { value }
+    );
+    return response.data;
+  },
+
+  changePassword: async (data: ChangePasswordDto): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>('/auth/change-password', data);
+    return response.data;
+  },
+};
+
+// Face Match Attempts API (for debugging face recognition)
+export const faceMatchApi = {
+  getAttempts: async (
+    page: number = 1,
+    limit: number = 20
+  ): Promise<import('@/types').FaceMatchAttemptListResponse> => {
+    const response = await apiClient.get('/attendance/face-match-attempts', {
+      params: { page, limit },
+    });
+    return response.data;
+  },
+
+  getAttemptById: async (id: string): Promise<import('@/types').FaceMatchAttempt> => {
+    const response = await apiClient.get(`/attendance/face-match-attempts/${id}`);
+    return response.data;
+  },
+
+  cleanup: async (daysOld: number = 30): Promise<{ message: string; deletedCount: number }> => {
+    const response = await apiClient.delete('/attendance/face-match-attempts/cleanup', {
+      params: { daysOld },
+    });
+    return response.data;
   },
 };

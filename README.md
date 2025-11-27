@@ -12,6 +12,7 @@ Sistem absensi dengan **on-device face recognition** menggunakan MobileFaceNet y
 - **192-dimensional embeddings** - Vektor wajah presisi tinggi
 - **Multi-pose registration** - 5 foto dari berbagai sudut untuk akurasi lebih baik
 - **On-device matching** - Pencocokan wajah langsung di HP, tidak perlu internet
+- **Dynamic Threshold Sync** - Sync threshold dari backend saat "Coba Lagi"
 
 ### Visual Feedback (Android)
 - **Corner Frame Indicator** - Warna berubah sesuai status deteksi wajah:
@@ -34,8 +35,12 @@ Sistem absensi dengan **on-device face recognition** menggunakan MobileFaceNet y
 - **Face Registration Approval** - Review dan approve pendaftaran wajah
 - **Employee Management** - Kelola data karyawan
 - **Department Management** - Kelola departemen
-- **Attendance Reports** - Laporan harian dan bulanan
+- **Holiday Management** - Kelola hari libur nasional dan cuti bersama
+- **Attendance Reports** - Laporan harian dan bulanan dengan preview
 - **Dashboard Analytics** - Statistik kehadiran
+- **Settings Management** - Konfigurasi face threshold dan ganti password
+- **Collapsible Reports Menu** - Menu laporan dengan sub-menu collapse
+- **Face Match Logs** - Log setiap percobaan face matching untuk debugging
 
 ## Quick Start
 
@@ -118,9 +123,22 @@ cd web-admin && npm run dev         # Port 5173
 5. On-device face matching:
    - Sync embeddings dari server (cached)
    - Compare dengan MobileFaceNet
-   - Match threshold: 0.7
-6. Match ditemukan → Submit attendance ke backend
-7. Tampilkan hasil: "Selamat datang, [Nama]!"
+   - Match threshold dari settings (default: 0.35)
+6. Match ditemukan:
+   - CHECK_IN: Dialog konfirmasi identitas
+   - CHECK_OUT: Cek jadwal dulu → Jika early: Dialog early checkout, Jika tidak: Dialog konfirmasi
+7. User konfirmasi → isProfileConfirmed = true (face detection STOP TOTAL)
+8. Submit attendance ke backend
+9. Tampilkan hasil: "Selamat datang, [Nama]!"
+
+**Penting**: Setelah konfirmasi profil, face detection berhenti total.
+User harus kembali ke Home untuk scan ulang.
+
+**Jika gagal (Coba Lagi)**:
+1. User klik "Coba Lagi" di dialog error
+2. App sync threshold terbaru dari backend
+3. App sync embeddings terbaru
+4. User scan ulang dengan settings terbaru
 ```
 
 ## API Endpoints
@@ -139,6 +157,8 @@ GET    /api/attendance/sync-embeddings   # Sync embeddings ke Android
 POST   /api/attendance/verify-device     # Submit dari device-verified face
 POST   /api/attendance/verify-anonymous  # Verify face di server
 GET    /api/attendance/schedule/:userId  # Get jadwal kerja user
+POST   /api/attendance/log-attempt       # Log face match attempt (debugging)
+GET    /api/attendance/face-match-attempts # Get all face match logs
 ```
 
 ### Departments & Schedules
@@ -148,6 +168,29 @@ POST   /api/departments
 GET    /api/work-schedules
 POST   /api/work-schedules
 ```
+
+### Holidays
+```
+GET    /api/holidays              # List all holidays
+GET    /api/holidays?year=YYYY    # Filter by year
+POST   /api/holidays              # Create holiday (admin)
+PUT    /api/holidays/:id          # Update holiday (admin)
+DELETE /api/holidays/:id          # Delete holiday (admin)
+```
+
+### Settings
+```
+GET    /api/settings                      # Get all settings
+GET    /api/settings/similarity-threshold # Get face threshold
+PUT    /api/settings/similarity-threshold # Update face threshold (0.1-1.0)
+POST   /api/auth/change-password          # Change admin password
+```
+
+**Note**: Web admin menampilkan threshold sebagai "Similarity %" untuk kemudahan:
+- Backend menyimpan sebagai distance (0.1 - 1.0)
+- Frontend menampilkan sebagai similarity (0% - 90%)
+- Formula: `Similarity = (1 - Distance) * 100`
+- Contoh: Distance 0.4 = Similarity 60%
 
 ## Database Schema
 
@@ -166,6 +209,32 @@ POST   /api/work-schedules
 - `departmentId` - Unique per department
 - `checkInTime` - Format "HH:MM"
 - `checkOutTime` - Format "HH:MM"
+
+### Holiday
+- `date` - Tanggal libur
+- `name` - Nama hari libur
+- `description` - Deskripsi (opsional)
+- `isGlobal` - true = semua karyawan, false = karyawan tertentu
+- `users` - Relasi ke HolidayUser (untuk libur per karyawan)
+
+### HolidayUser (Junction Table)
+- `holidayId` - Foreign key ke Holiday
+- `userId` - Foreign key ke User
+
+### Settings
+- `key` - Nama setting (unique)
+- `value` - Nilai setting (TEXT)
+- **Available Keys**:
+  - `FACE_SIMILARITY_THRESHOLD` - Threshold pencocokan wajah (default: 0.6)
+
+### FaceMatchAttempt
+- `attemptType` - CHECK_IN atau CHECK_OUT
+- `success` - true jika match ditemukan
+- `matchedUserId` / `matchedUserName` - User yang di-match (jika sukses)
+- `threshold` - Threshold yang digunakan
+- `bestDistance` / `bestSimilarity` - Jarak/similarity terbaik
+- `totalUsersCompared` - Jumlah user yang dibandingkan
+- `allMatches` - JSON detail semua perbandingan (ranking)
 
 ## Android Structure
 
@@ -217,8 +286,11 @@ const val BASE_URL = "http://192.168.x.x:3001/api/"  // Real device
 
 ### Face tidak dikenali
 1. Pastikan embeddings sudah sync (`/api/attendance/sync-embeddings`)
-2. Cek threshold di `FaceRecognitionHelper.kt` (default: 0.7)
-3. Registrasi ulang dengan pencahayaan lebih baik
+2. Cek threshold di Settings (default: 60%)
+3. Adjust threshold di Settings > Face Similarity:
+   - Nilai lebih tinggi = lebih ketat (wajah harus sangat mirip)
+   - Nilai lebih rendah = lebih longgar (toleransi lebih tinggi)
+4. Registrasi ulang dengan pencahayaan lebih baik
 
 ### Corner frame tidak berubah warna
 - Pastikan wajah terlihat jelas di kamera
@@ -251,3 +323,7 @@ Private - Internal Use Only
 ---
 
 **Built with MobileFaceNet for accurate on-device face recognition**
+
+---
+
+**Last Updated**: November 27, 2025

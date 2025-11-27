@@ -28,16 +28,21 @@ import {
   CheckCircle as ApproveIcon,
   Cancel as RejectIcon,
   Delete as DeleteIcon,
+  SwapHoriz as SwapIcon,
 } from '@mui/icons-material';
-import { faceRegistrationApi, departmentApi } from '@/api';
-import { FaceRegistration, ApproveRegistrationDto, Department } from '@/types';
+import { faceRegistrationApi, departmentApi, employeesApi } from '@/api';
+import { FaceRegistration, ApproveRegistrationDto, Department, Employee } from '@/types';
+import { usePageTitle } from '@/contexts/PageTitleContext';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
 export default function PendingRegistrations() {
   const [registrations, setRegistrations] = useState<FaceRegistration[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+
+  usePageTitle('Pendaftaran Wajah', 'Kelola pendaftaran wajah yang menunggu persetujuan');
   const [approveDialog, setApproveDialog] = useState<{ open: boolean; registration: FaceRegistration | null }>({
     open: false,
     registration: null,
@@ -46,6 +51,11 @@ export default function PendingRegistrations() {
     open: false,
     registration: null,
   });
+  const [replaceDialog, setReplaceDialog] = useState<{ open: boolean; registration: FaceRegistration | null }>({
+    open: false,
+    registration: null,
+  });
+  const [selectedUserId, setSelectedUserId] = useState('');
 
   const [approveData, setApproveData] = useState<ApproveRegistrationDto>({
     email: '',
@@ -66,12 +76,14 @@ export default function PendingRegistrations() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [registrationsData, departmentsData] = await Promise.all([
+      const [registrationsData, departmentsData, employeesData] = await Promise.all([
         faceRegistrationApi.getPending(),
         departmentApi.getAll(),
+        employeesApi.getAll(),
       ]);
       setRegistrations(registrationsData);
       setDepartments(departmentsData.filter(d => d.isActive));
+      setEmployees(employeesData.filter(e => e.isActive));
     } catch (error) {
       toast.error('Gagal memuat data');
       console.error(error);
@@ -171,6 +183,34 @@ export default function PendingRegistrations() {
     }
   };
 
+  const handleReplaceClick = (registration: FaceRegistration) => {
+    setReplaceDialog({ open: true, registration });
+    setSelectedUserId('');
+  };
+
+  const handleReplaceFace = async () => {
+    if (!replaceDialog.registration) return;
+
+    if (!selectedUserId) {
+      toast.error('Pilih karyawan terlebih dahulu');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await faceRegistrationApi.replaceFace(replaceDialog.registration.id, selectedUserId);
+      toast.success('Wajah karyawan berhasil diganti');
+      setReplaceDialog({ open: false, registration: null });
+      loadPendingRegistrations();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const selectedEmployee = employees.find(e => e.id === selectedUserId);
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -181,13 +221,6 @@ export default function PendingRegistrations() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom fontWeight="bold">
-        Pendaftaran Wajah Pending
-      </Typography>
-      <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
-        Kelola pendaftaran wajah yang menunggu persetujuan
-      </Typography>
-
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -232,7 +265,7 @@ export default function PendingRegistrations() {
                     {format(new Date(registration.createdAt), 'dd MMM yyyy HH:mm')}
                   </TableCell>
                   <TableCell align="center">
-                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
                       <Button
                         size="small"
                         variant="contained"
@@ -241,6 +274,15 @@ export default function PendingRegistrations() {
                         onClick={() => handleApproveClick(registration)}
                       >
                         Setuju
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="info"
+                        startIcon={<SwapIcon />}
+                        onClick={() => handleReplaceClick(registration)}
+                      >
+                        Ganti Wajah
                       </Button>
                       <Button
                         size="small"
@@ -355,6 +397,75 @@ export default function PendingRegistrations() {
           </Button>
           <Button onClick={handleReject} variant="contained" color="error" disabled={submitting}>
             {submitting ? 'Memproses...' : 'Tolak Pendaftaran'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Replace Face Dialog */}
+      <Dialog open={replaceDialog.open} onClose={() => setReplaceDialog({ open: false, registration: null })} maxWidth="sm" fullWidth>
+        <DialogTitle>Ganti Wajah Karyawan</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            Gunakan wajah dari: <strong>{replaceDialog.registration?.name}</strong>
+          </Typography>
+
+          {/* Photo comparison */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mb: 3 }}>
+            <Box sx={{ textAlign: 'center' }}>
+              <Avatar
+                src={replaceDialog.registration?.faceImageUrl}
+                alt="Foto Baru"
+                sx={{ width: 80, height: 80, mx: 'auto', mb: 1 }}
+              />
+              <Typography variant="caption" color="textSecondary">Foto Baru</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <SwapIcon color="action" />
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Avatar
+                src={selectedEmployee?.faceImageUrl}
+                alt="Foto Lama"
+                sx={{ width: 80, height: 80, mx: 'auto', mb: 1, bgcolor: 'grey.300' }}
+              >
+                {selectedEmployee?.name?.charAt(0).toUpperCase() || '?'}
+              </Avatar>
+              <Typography variant="caption" color="textSecondary">
+                {selectedEmployee ? 'Foto Lama' : 'Pilih Karyawan'}
+              </Typography>
+            </Box>
+          </Box>
+
+          <FormControl fullWidth required error={!selectedUserId && employees.length > 0}>
+            <InputLabel>Pilih Karyawan</InputLabel>
+            <Select
+              value={selectedUserId}
+              label="Pilih Karyawan"
+              onChange={(e) => setSelectedUserId(e.target.value)}
+            >
+              {employees.map((emp) => (
+                <MenuItem key={emp.id} value={emp.id}>
+                  {emp.name} {emp.department?.name ? `(${emp.department.name})` : ''}
+                </MenuItem>
+              ))}
+            </Select>
+            {employees.length === 0 && (
+              <FormHelperText error>
+                Belum ada karyawan aktif.
+              </FormHelperText>
+            )}
+          </FormControl>
+
+          <Typography variant="caption" color="warning.main" sx={{ mt: 2, display: 'block', p: 1.5, bgcolor: 'warning.lighter', borderRadius: 1 }}>
+            Data wajah lama karyawan akan diganti dengan wajah baru. Riwayat absensi tidak akan terpengaruh.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReplaceDialog({ open: false, registration: null })} disabled={submitting}>
+            Batal
+          </Button>
+          <Button onClick={handleReplaceFace} variant="contained" color="info" disabled={submitting || !selectedUserId}>
+            {submitting ? 'Memproses...' : 'Ganti Wajah'}
           </Button>
         </DialogActions>
       </Dialog>

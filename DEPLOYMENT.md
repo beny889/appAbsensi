@@ -19,12 +19,13 @@ Panduan lengkap untuk deployment sistem absensi ke production.
 
 **Backend Server (VPS/Cloud)**:
 - Ubuntu 20.04+ atau CentOS 7+
-- **Python 3.11+** ⚡ (NEW! for ML Service)
 - Node.js 18+
 - PostgreSQL 14+
 - Nginx
 - PM2 (process manager)
-- Minimum 2GB RAM, 20GB Storage (recommend 4GB for ML service)
+- Minimum 2GB RAM, 20GB Storage
+
+> **Note**: Face recognition sekarang dilakukan **on-device** di Android menggunakan MobileFaceNet, sehingga tidak perlu Python ML Service di server.
 
 **Domain & SSL**:
 - Domain name (contoh: api.absensi.com, admin.absensi.com)
@@ -32,9 +33,19 @@ Panduan lengkap untuk deployment sistem absensi ke production.
 
 ---
 
-## Python ML Service Deployment ⚡ (DEPLOY FIRST!)
+## ~~Python ML Service Deployment~~ (DEPRECATED)
 
-**IMPORTANT**: The Python ML Service must be deployed BEFORE the backend, as the backend depends on it for face recognition.
+> ⚠️ **DEPRECATED**: Section ini sudah tidak berlaku!
+>
+> Face recognition sekarang dilakukan **on-device** di Android menggunakan MobileFaceNet TFLite.
+> Tidak perlu deploy Python ML Service lagi.
+>
+> Skip langsung ke [Backend Deployment](#backend-deployment).
+
+<details>
+<summary>Klik untuk melihat dokumentasi legacy (untuk referensi saja)</summary>
+
+**[LEGACY]** Dokumentasi ini disimpan untuk referensi historis saja.
 
 ### 1. Install Python and Dependencies
 
@@ -203,6 +214,8 @@ curl -X POST http://localhost:5000/extract-embedding \
   -d '{"image": "YOUR_BASE64_IMAGE_HERE"}'
 ```
 
+</details>
+
 ---
 
 ## Backend Deployment
@@ -275,10 +288,9 @@ NODE_ENV=production
 JWT_SECRET=GENERATE_RANDOM_SECURE_KEY_HERE
 JWT_EXPIRATION=7d
 ALLOWED_ORIGINS=https://admin.absensi.com
-
-# Python ML Service ⚡ (NEW!)
-FACE_RECOGNITION_SERVICE_URL=http://localhost:5000
 ```
+
+> **Note**: Face recognition dilakukan on-device di Android, tidak perlu konfigurasi ML service di backend.
 
 ### 4. Run Database Migrations
 
@@ -650,35 +662,6 @@ npm run prisma:migrate
 
 ## Troubleshooting
 
-### Python ML Service Issues ⚡ (NEW!)
-
-```bash
-# Service not running
-sudo systemctl status face-recognition
-
-# View detailed logs
-sudo journalctl -u face-recognition -n 50 --no-pager
-
-# Common issues:
-# 1. Port 5000 already in use
-sudo netstat -tlnp | grep 5000
-
-# 2. dlib installation failed
-# Solution: Use dlib-bin instead
-source /var/www/face-recognition-service/venv/bin/activate
-pip uninstall dlib
-pip install dlib-bin
-
-# 3. Permission issues
-sudo chown -R www-data:www-data /var/www/face-recognition-service
-
-# 4. Python version too old
-python3.11 --version  # Must be 3.11+
-
-# Restart service
-sudo systemctl restart face-recognition
-```
-
 ### Backend won't start
 ```bash
 # Check logs
@@ -741,12 +724,6 @@ sudo certbot certificates
 ## Quick Reference Commands
 
 ```bash
-# Python ML Service ⚡ (NEW!)
-sudo systemctl status face-recognition
-sudo systemctl restart face-recognition
-sudo journalctl -u face-recognition -f
-curl http://localhost:5000/health
-
 # Backend
 pm2 restart absensi-api
 pm2 logs absensi-api
@@ -776,4 +753,4 @@ sudo certbot certificates
 
 ---
 
-**Last Updated**: November 25, 2025
+**Last Updated**: November 26, 2025

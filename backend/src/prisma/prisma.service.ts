@@ -53,6 +53,18 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return this.prisma.workSchedule;
   }
 
+  get holiday() {
+    return this.prisma.holiday;
+  }
+
+  get holidayUser() {
+    return this.prisma.holidayUser;
+  }
+
+  get faceMatchAttempt() {
+    return this.prisma.faceMatchAttempt;
+  }
+
   // Expose transaction and other utility methods
   get $transaction() {
     return this.prisma.$transaction.bind(this.prisma);

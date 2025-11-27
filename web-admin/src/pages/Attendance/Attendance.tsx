@@ -9,6 +9,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   Chip,
   CircularProgress,
   TextField,
@@ -22,24 +23,40 @@ import {
   DialogActions,
   Button,
   IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  InputAdornment,
 } from '@mui/material';
-import { Person as PersonIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Person as PersonIcon, Delete as DeleteIcon, Search as SearchIcon, Today as TodayIcon, Clear as ClearIcon } from '@mui/icons-material';
 import { attendanceApi } from '@/api';
 import { Attendance as AttendanceType } from '@/types';
+import { usePageTitle } from '@/contexts/PageTitleContext';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
 export default function Attendance() {
   const [attendances, setAttendances] = useState<AttendanceType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
   const [selectedImage, setSelectedImage] = useState<{ url: string; name: string; type: string } | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; attendance: AttendanceType | null }>({
     open: false,
     attendance: null,
   });
   const [deleting, setDeleting] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  usePageTitle('Data Absensi', 'Riwayat absensi karyawan');
 
   useEffect(() => {
     loadAttendances();
@@ -49,7 +66,12 @@ export default function Attendance() {
     setLoading(true);
     try {
       const data = await attendanceApi.getAll(startDate || undefined, endDate || undefined);
-      setAttendances(data);
+      // Sort by timestamp descending (newest first)
+      const sortedData = data.sort((a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      setAttendances(sortedData);
+      setPage(0); // Reset to first page when data changes
     } catch (error) {
       toast.error('Gagal memuat data absensi');
       console.error(error);
@@ -57,6 +79,51 @@ export default function Attendance() {
       setLoading(false);
     }
   };
+
+  // Pagination handlers
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Filter by search query
+  const filteredAttendances = attendances.filter((attendance) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    const name = attendance.user?.name?.toLowerCase() || '';
+    const position = attendance.user?.position?.toLowerCase() || '';
+    return name.includes(query) || position.includes(query);
+  });
+
+  // Get paginated data from filtered results
+  const paginatedAttendances = filteredAttendances.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
+
+  // Reset page when search changes
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery]);
+
+  // Quick filter handlers
+  const handleTodayFilter = () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    setStartDate(today);
+    setEndDate(today);
+  };
+
+  const handleClearFilter = () => {
+    setStartDate('');
+    setEndDate('');
+    setSearchQuery('');
+  };
+
+  const isFilterActive = startDate || endDate || searchQuery;
 
   const handleDeleteClick = (attendance: AttendanceType) => {
     setDeleteDialog({ open: true, attendance });
@@ -89,16 +156,26 @@ export default function Attendance() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom fontWeight="bold">
-        Data Absensi
-      </Typography>
-      <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
-        Riwayat absensi karyawan
-      </Typography>
-
       <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              label="Cari Karyawan"
+              placeholder="Nama atau posisi..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              size="small"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="action" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+          <Grid item xs={6} sm={4} md={2}>
             <TextField
               fullWidth
               type="date"
@@ -106,9 +183,10 @@ export default function Attendance() {
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               InputLabelProps={{ shrink: true }}
+              size="small"
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={6} sm={4} md={2}>
             <TextField
               fullWidth
               type="date"
@@ -116,7 +194,33 @@ export default function Attendance() {
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               InputLabelProps={{ shrink: true }}
+              size="small"
             />
+          </Grid>
+          <Grid item xs={12} sm={4} md={5}>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<TodayIcon />}
+                onClick={handleTodayFilter}
+                sx={{ textTransform: 'none' }}
+              >
+                Hari Ini
+              </Button>
+              {isFilterActive && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  color="secondary"
+                  startIcon={<ClearIcon />}
+                  onClick={handleClearFilter}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Reset Filter
+                </Button>
+              )}
+            </Box>
           </Grid>
         </Grid>
       </Paper>
@@ -137,22 +241,26 @@ export default function Attendance() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {attendances.length === 0 ? (
+            {paginatedAttendances.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center">
+                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                   <Typography variant="body2" color="textSecondary">
-                    Belum ada data absensi
+                    {attendances.length === 0
+                      ? 'Belum ada data absensi'
+                      : searchQuery
+                      ? `Tidak ditemukan hasil untuk "${searchQuery}"`
+                      : 'Tidak ada data pada halaman ini'}
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              attendances.map((attendance) => (
+              paginatedAttendances.map((attendance) => (
                 <TableRow key={attendance.id} hover>
                   <TableCell>
-                    {attendance.faceImageUrl ? (
+                    {(attendance.faceImageUrl || attendance.user?.faceImageUrl) ? (
                       <Tooltip title="Klik untuk memperbesar">
                         <Avatar
-                          src={attendance.faceImageUrl}
+                          src={attendance.faceImageUrl || attendance.user?.faceImageUrl}
                           alt={attendance.user?.name || 'User'}
                           sx={{
                             width: 45,
@@ -165,7 +273,7 @@ export default function Attendance() {
                             }
                           }}
                           onClick={() => setSelectedImage({
-                            url: attendance.faceImageUrl!,
+                            url: (attendance.faceImageUrl || attendance.user?.faceImageUrl)!,
                             name: attendance.user?.name || 'User',
                             type: attendance.type
                           })}
@@ -250,11 +358,31 @@ export default function Attendance() {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={filteredAttendances.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[10, 25, 50, 100]}
+          labelRowsPerPage="Baris per halaman:"
+          labelDisplayedRows={({ from, to, count }) =>
+            `${from}-${to} dari ${count !== -1 ? count : `lebih dari ${to}`}`
+          }
+        />
       </TableContainer>
 
-      <Box sx={{ mt: 2 }}>
+      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="body2" color="textSecondary">
-          Total: {attendances.length} record
+          {searchQuery ? (
+            <>Ditemukan: {filteredAttendances.length} dari {attendances.length} record</>
+          ) : (
+            <>Total: {attendances.length} record</>
+          )}
+        </Typography>
+        <Typography variant="body2" color="textSecondary">
+          Halaman {page + 1} dari {Math.ceil(filteredAttendances.length / rowsPerPage) || 1}
         </Typography>
       </Box>
 

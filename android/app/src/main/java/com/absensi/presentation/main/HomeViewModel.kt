@@ -31,9 +31,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val timeFormat = SimpleDateFormat("HH:mm", Locale("id", "ID"))
     private val TAG = "HomeViewModel"
 
-    init {
-        loadTodayAttendance()
-    }
+    // NOTE: Tidak memanggil loadTodayAttendance() di init
+    // untuk menghindari race condition dengan observer di Fragment.
+    // Fragment harus memanggil loadTodayAttendance() setelah setupObservers()
 
     fun loadTodayAttendance() {
         _isLoading.value = true

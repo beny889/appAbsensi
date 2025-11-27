@@ -40,6 +40,7 @@ export interface User {
   department?: Department;
   phone?: string;
   isActive: boolean;
+  faceImageUrl?: string;
 }
 
 export interface LoginResponse {
@@ -197,6 +198,93 @@ export interface UpdateWorkScheduleDto {
   checkInTime?: string;
   checkOutTime?: string;
   isActive?: boolean;
+}
+
+// Employee Detail Report Types
+export interface EmployeeDetailReportUser {
+  id: string;
+  name: string;
+  department: string;
+  position: string;
+}
+
+export interface EmployeeDetailReportPeriod {
+  startDate: string;
+  endDate: string;
+}
+
+export interface EmployeeDetailReportSummary {
+  workingDays: number;
+  presentDays: number;
+  lateDays: number;
+  earlyDays: number;
+  absentDays: number;
+  attendanceRate: number;
+  totalLateMinutes: number;
+  totalEarlyMinutes: number;
+}
+
+export interface EmployeeDetailCheckIn {
+  time: string;
+  isLate: boolean;
+  lateMinutes: number;
+}
+
+export interface EmployeeDetailCheckOut {
+  time: string;
+  isEarly: boolean;
+  earlyMinutes: number;
+}
+
+export interface EmployeeDetailDailyRecord {
+  date: string;
+  dayName: string;
+  isHoliday: boolean;
+  holidayName?: string;
+  checkIn: EmployeeDetailCheckIn | null;
+  checkOut: EmployeeDetailCheckOut | null;
+  status: 'PRESENT' | 'LATE' | 'EARLY' | 'ABSENT' | 'HOLIDAY' | 'FUTURE';
+}
+
+export interface EmployeeDetailReport {
+  user: EmployeeDetailReportUser;
+  period: EmployeeDetailReportPeriod;
+  summary: EmployeeDetailReportSummary;
+  dailyRecords: EmployeeDetailDailyRecord[];
+}
+
+// Face Match Attempt Types (for debugging)
+export interface FaceMatchAttempt {
+  id: string;
+  attemptType: 'CHECK_IN' | 'CHECK_OUT';
+  success: boolean;
+  matchedUserId?: string;
+  matchedUserName?: string;
+  threshold: number;
+  bestDistance?: number;
+  bestSimilarity?: number;
+  totalUsersCompared: number;
+  allMatches: string; // JSON string
+  createdAt: string;
+}
+
+export interface UserMatchInfo {
+  rank: number;
+  odId: string;
+  name: string;
+  distance: number;
+  similarity: number;
+  isMatch: boolean;
+}
+
+export interface FaceMatchAttemptListResponse {
+  data: FaceMatchAttempt[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }
 
 // Common Types

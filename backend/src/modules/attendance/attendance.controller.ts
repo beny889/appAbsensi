@@ -9,7 +9,7 @@ import {
   Param,
 } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
-import { CreateAttendanceDto, VerifyFaceDto, VerifyAnonymousDto, VerifyDeviceDto } from './dto';
+import { CreateAttendanceDto, VerifyFaceDto, VerifyAnonymousDto, VerifyDeviceDto, LogAttemptDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -150,5 +150,52 @@ export class AttendanceController {
   @Roles(Role.ADMIN)
   async deleteAttendance(@Param('id') id: string) {
     return this.attendanceService.delete(id);
+  }
+
+  /**
+   * Log face match attempt (NO authentication required)
+   * Called by Android app after every face matching attempt (success or failure)
+   */
+  @Post('log-attempt')
+  async logAttempt(@Body() dto: LogAttemptDto) {
+    return this.attendanceService.logFaceMatchAttempt(dto);
+  }
+
+  /**
+   * Get all face match attempts (Admin only)
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('face-match-attempts')
+  @Roles(Role.ADMIN)
+  async getFaceMatchAttempts(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.attendanceService.getFaceMatchAttempts(
+      page ? parseInt(page) : 1,
+      limit ? parseInt(limit) : 20,
+    );
+  }
+
+  /**
+   * Get single face match attempt by ID (Admin only)
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('face-match-attempts/:id')
+  @Roles(Role.ADMIN)
+  async getFaceMatchAttemptById(@Param('id') id: string) {
+    return this.attendanceService.getFaceMatchAttemptById(id);
+  }
+
+  /**
+   * Delete old face match attempts (Admin only)
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Delete('face-match-attempts/cleanup')
+  @Roles(Role.ADMIN)
+  async deleteOldAttempts(@Query('daysOld') daysOld?: string) {
+    return this.attendanceService.deleteOldAttempts(
+      daysOld ? parseInt(daysOld) : 30,
+    );
   }
 }

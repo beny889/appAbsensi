@@ -40,9 +40,34 @@ Project ini sudah lengkap dan siap digunakan dengan fitur-fitur berikut:
 
 - ✅ **Reports**
   - Daily Report dengan statistik
-  - Monthly Report per karyawan
+  - Monthly Report per karyawan dengan preview
   - Attendance rate calculation
-  - Working days calculation
+  - Working days calculation (exclude holidays)
+
+- ✅ **Holiday Management**
+  - CRUD hari libur nasional dan cuti bersama
+  - Filter berdasarkan tahun
+  - Integrated dengan reports (exclude dari working days)
+  - **Multi-Employee Holiday**: Support libur untuk semua atau karyawan tertentu
+    - Checkbox "Libur untuk semua karyawan"
+    - Multi-select karyawan jika tidak global
+
+- ✅ **Settings**
+  - Face similarity threshold configuration (ditampilkan sebagai %)
+  - Change admin password
+  - Dynamic settings dari database
+  - Threshold sync ke Android app secara otomatis
+
+- ✅ **Collapsible Reports Menu**
+  - Menu "Laporan" dengan sub-menu collapse
+  - Sub-menu: Harian, Bulanan, Detail Karyawan
+  - Auto-expand saat di halaman report
+
+- ✅ **Face Match Logs** (NEW!)
+  - Log setiap percobaan face matching (sukses/gagal)
+  - Detail: threshold, similarity, matched user
+  - Klik row untuk lihat ranking semua perbandingan
+  - Useful untuk debugging face recognition
 
 ## 🚀 Quick Start
 
@@ -97,6 +122,8 @@ src/
 │   │   └── Employees.tsx  # ✅ Employee list
 │   ├── Attendance/
 │   │   └── Attendance.tsx # ✅ Attendance records
+│   ├── FaceMatchLogs/
+│   │   └── FaceMatchLogs.tsx # ✅ Face match logs (debugging)
 │   └── Reports/
 │       ├── DailyReports.tsx   # ✅ Daily report
 │       └── MonthlyReports.tsx # ✅ Monthly report
@@ -174,10 +201,41 @@ src/
 
 ### 7. Monthly Reports (`/reports/monthly`)
 - Select year & month
-- Per-employee statistics
-- Working days calculation
-- Attendance rate per employee
-- Color-coded performance (Green >80%, Red <80%)
+- Preview data before PDF download
+- Per-employee attendance grid (day by day)
+- Working days calculation (excludes holidays)
+- Late/early/absent summary per employee
+- Color-coded status (Green=hadir, Red=absent, Orange=terlambat)
+- Export to PDF
+
+### 8. Holiday Management (`/holidays`)
+- List all holidays with year filter
+- Add new holiday (date + name + description)
+- Edit existing holidays
+- Delete holidays
+- Holidays auto-excluded from working days in reports
+
+### 10. Face Match Logs (`/face-match-logs`)
+- List semua percobaan face matching
+- Filter by success/fail status
+- Columns: Waktu, Tipe, Status, Match, Similarity
+- Klik row untuk detail:
+  - Threshold yang digunakan
+  - Total users dibandingkan
+  - Ranking similarity ke semua user
+- Useful untuk debugging face recognition issues
+
+### 11. Settings (`/settings`)
+- **Face Similarity Threshold**:
+  - Ditampilkan sebagai persentase (0% - 90%)
+  - Formula: `Similarity = (1 - Distance) * 100`
+  - Contoh: Distance 0.35 = Similarity 65%
+  - Slider dengan label: "Sangat Ketat", "Ketat", "Normal", "Longgar"
+  - Perubahan langsung sync ke Android saat app call `/api/attendance/sync-embeddings`
+- **Change Admin Password**:
+  - Validasi password lama
+  - Minimum 6 karakter
+- Real-time settings update (no restart needed)
 
 ## 🔧 Development
 
@@ -345,12 +403,17 @@ const employees = await employeesApi.getAll();
 - [x] Authentication & Authorization
 - [x] Dashboard with statistics
 - [x] Employee management
-- [x] Face registration approval workflow (NEW!)
+- [x] Face registration approval workflow
 - [x] Attendance tracking
 - [x] Daily & Monthly reports
+- [x] Monthly report preview with PDF export
+- [x] Holiday management
+- [x] Settings (face threshold + change password)
+- [x] Collapsible reports menu
+- [x] Face Match Logs (debugging)
 
 ### 🔜 Future Enhancements
-- [ ] Export to Excel/PDF
+- [ ] Export to Excel
 - [ ] Charts & graphs (Recharts)
 - [ ] Real-time updates (WebSocket)
 - [ ] Push notifications for new registrations
@@ -375,3 +438,7 @@ Private - Internal Use Only
 ---
 
 **Need Help?** Check the main README.md or contact the development team.
+
+---
+
+**Last Updated**: November 27, 2025

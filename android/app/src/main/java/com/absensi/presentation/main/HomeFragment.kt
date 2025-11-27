@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.absensi.databinding.FragmentHomeBinding
 import com.absensi.presentation.camera.CameraActivity
 import com.absensi.util.Constants
+import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -81,6 +82,9 @@ class HomeFragment : Fragment() {
 
         // Observe today's attendance list
         viewModel.todayAttendanceList.observe(viewLifecycleOwner) { list ->
+            // Update counter badge
+            updateAttendanceCounter(list.size)
+
             if (list.isEmpty()) {
                 binding.rvAttendanceList.visibility = View.GONE
                 binding.layoutEmpty.visibility = View.VISIBLE
@@ -88,6 +92,13 @@ class HomeFragment : Fragment() {
                 binding.rvAttendanceList.visibility = View.VISIBLE
                 binding.layoutEmpty.visibility = View.GONE
                 attendanceAdapter.submitList(list)
+            }
+        }
+
+        // Observe error messages
+        viewModel.errorMessage.observe(viewLifecycleOwner) { error ->
+            if (!error.isNullOrEmpty()) {
+                Toast.makeText(requireContext(), "Error: $error", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -146,6 +157,15 @@ class HomeFragment : Fragment() {
         val intent = Intent(requireContext(), CameraActivity::class.java)
         intent.putExtra(CameraActivity.EXTRA_MODE, CameraActivity.MODE_REGISTRATION)
         startActivity(intent)
+    }
+
+    private fun updateAttendanceCounter(count: Int) {
+        if (count > 0) {
+            binding.tvAttendanceCount.visibility = View.VISIBLE
+            binding.tvAttendanceCount.text = count.toString()
+        } else {
+            binding.tvAttendanceCount.visibility = View.GONE
+        }
     }
 
     override fun onResume() {

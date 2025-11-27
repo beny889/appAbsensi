@@ -199,6 +199,22 @@ class FaceRecognitionHelper(private val context: Context) {
     }
 
     /**
+     * Data class for match result with logging information
+     */
+    data class UserMatchInfo(
+        val odId: String,
+        val name: String,
+        val distance: Float,
+        val similarity: Int,  // percentage (0-100)
+        val isMatch: Boolean
+    )
+
+    data class MatchResultWithLog(
+        val bestMatch: Pair<String, Float>?,  // odId, distance
+        val allMatches: List<UserMatchInfo>    // all users with their distances
+    )
+
+    /**
      * Find the best matching face from multiple embeddings per user.
      * This provides better accuracy by comparing against all stored face angles.
      *
@@ -246,6 +262,89 @@ class FaceRecognitionHelper(private val context: Context) {
             Log.d(TAG, "No match found. Best distance: $bestDistance (threshold: $threshold)")
             null
         }
+    }
+
+    /**
+     * Find the best matching face with detailed logging for all users.
+     * Returns both the best match and comparison details for all users.
+     *
+     * @param targetEmbedding The embedding to match against
+     * @param storedMultiEmbeddings Map of userId to list of embeddings
+     * @param userNames Map of userId to user name
+     * @param threshold Distance threshold
+     * @return MatchResultWithLog containing best match and all user comparisons
+     */
+    fun findBestMatchMultiWithLog(
+        targetEmbedding: FloatArray,
+        storedMultiEmbeddings: Map<String, List<FloatArray>>,
+        userNames: Map<String, String>,
+        threshold: Float = DISTANCE_THRESHOLD
+    ): MatchResultWithLog {
+        val allMatches = mutableListOf<UserMatchInfo>()
+        var bestMatch: String? = null
+        var bestDistance = Float.MAX_VALUE
+
+        Log.d(TAG, "═══════════════════════════════════════════")
+        Log.d(TAG, "🔍 FACE MATCHING DEBUG LOG")
+        Log.d(TAG, "═══════════════════════════════════════════")
+        Log.d(TAG, "Threshold: $threshold (${(threshold * 100).toInt()}%)")
+        Log.d(TAG, "Total users to compare: ${storedMultiEmbeddings.size}")
+        Log.d(TAG, "───────────────────────────────────────────")
+
+        for ((userId, embeddingsList) in storedMultiEmbeddings) {
+            // Find the best distance among all embeddings for this user
+            var userBestDistance = Float.MAX_VALUE
+
+            for ((index, embedding) in embeddingsList.withIndex()) {
+                try {
+                    val distance = calculateDistance(targetEmbedding, embedding)
+                    if (distance < userBestDistance) {
+                        userBestDistance = distance
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error comparing embedding $index for user $userId: ${e.message}")
+                }
+            }
+
+            // Calculate similarity percentage: (1 - distance/2) * 100, clamped to 0-100
+            val similarity = ((1 - userBestDistance / 2) * 100).toInt().coerceIn(0, 100)
+            val isMatch = userBestDistance < threshold
+            val userName = userNames[userId] ?: "Unknown"
+
+            allMatches.add(UserMatchInfo(
+                odId = userId,
+                name = userName,
+                distance = userBestDistance,
+                similarity = similarity,
+                isMatch = isMatch
+            ))
+
+            if (userBestDistance < bestDistance) {
+                bestDistance = userBestDistance
+                bestMatch = userId
+            }
+        }
+
+        // Sort by distance (best matches first)
+        allMatches.sortBy { it.distance }
+
+        // Log ranking
+        Log.d(TAG, "📊 RANKING (sorted by distance):")
+        allMatches.forEachIndexed { index, match ->
+            val status = if (match.isMatch) "✓ MATCH" else "✗ NO MATCH"
+            Log.d(TAG, "${index + 1}. ${match.name}: distance=${"%.4f".format(match.distance)} | similarity=${match.similarity}% | $status")
+        }
+        Log.d(TAG, "═══════════════════════════════════════════")
+
+        val result = if (bestMatch != null && bestDistance < threshold) {
+            Log.d(TAG, "✓ Best match: ${userNames[bestMatch]} (distance=${"%.4f".format(bestDistance)})")
+            Pair(bestMatch, bestDistance)
+        } else {
+            Log.d(TAG, "✗ No match found. Best distance: ${"%.4f".format(bestDistance)} (threshold: $threshold)")
+            null
+        }
+
+        return MatchResultWithLog(result, allMatches)
     }
 
     /**

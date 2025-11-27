@@ -6,7 +6,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FaceRecognitionMlService } from '../face-registration/face-recognition-ml.service';
-import { CreateAttendanceDto, VerifyFaceDto, VerifyDeviceDto } from './dto';
+import { SettingsService } from '../settings/settings.service';
+import { CreateAttendanceDto, VerifyFaceDto, VerifyDeviceDto, LogAttemptDto } from './dto';
 import { AttendanceType } from '@prisma/client';
 
 @Injectable()
@@ -14,10 +15,18 @@ export class AttendanceService {
   constructor(
     private prisma: PrismaService,
     private faceRecognitionMl: FaceRecognitionMlService,
+    private settingsService: SettingsService,
   ) {}
 
-  private readonly FACE_DISTANCE_THRESHOLD = 0.6; // Standard dlib Euclidean distance threshold
+  private readonly DEFAULT_FACE_DISTANCE_THRESHOLD = 0.6; // Fallback threshold
   private readonly WIB_OFFSET_HOURS = 7; // WIB = UTC+7
+
+  /**
+   * Get face distance threshold from settings
+   */
+  private async getFaceDistanceThreshold(): Promise<number> {
+    return this.settingsService.getSimilarityThreshold();
+  }
 
   /**
    * Convert UTC date to WIB hours and minutes
@@ -241,9 +250,12 @@ export class AttendanceService {
       JSON.parse(dto.faceEmbedding),
     );
 
+    // Get dynamic threshold from settings
+    const threshold = await this.getFaceDistanceThreshold();
+
     // Lower distance = more similar (dlib standard)
     // If distance > threshold, faces are too different
-    if (distance > this.FACE_DISTANCE_THRESHOLD) {
+    if (distance > threshold) {
       throw new UnauthorizedException('Face verification failed');
     }
 
@@ -380,10 +392,16 @@ export class AttendanceService {
     if (startDate || endDate) {
       where.timestamp = {};
       if (startDate) {
-        where.timestamp.gte = startDate;
+        // Start of day
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        where.timestamp.gte = start;
       }
       if (endDate) {
-        where.timestamp.lte = endDate;
+        // End of day (23:59:59.999)
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        where.timestamp.lte = end;
       }
     }
 
@@ -397,6 +415,7 @@ export class AttendanceService {
             email: true,
             position: true,
             department: true,
+            faceImageUrl: true,
           },
         },
       },
@@ -453,12 +472,16 @@ export class AttendanceService {
       );
     }
 
+    // Get dynamic threshold from settings
+    const threshold = await this.getFaceDistanceThreshold();
+
     // Find best face match (lowest distance = best match)
     let bestMatch: any = null;
     let bestDistance = Infinity;
 
     console.log(`[Face Match] Comparing against ${approvedUsers.length} approved users...`);
     console.log(`[Face Match] Provided embedding length: ${providedEmbedding.length}`);
+    console.log(`[Face Match] Using threshold: ${threshold}`);
 
     for (const user of approvedUsers) {
       if (!user.faceEmbedding) continue;
@@ -484,13 +507,13 @@ export class AttendanceService {
       }
     }
 
-    console.log(`[Face Match] Best match: ${bestMatch?.name || 'NONE'}, Distance: ${bestDistance.toFixed(4)}, Threshold: ${this.FACE_DISTANCE_THRESHOLD}`);
+    console.log(`[Face Match] Best match: ${bestMatch?.name || 'NONE'}, Distance: ${bestDistance.toFixed(4)}, Threshold: ${threshold}`);
 
     // Check if best match is within threshold (lower distance = match)
     // If distance > threshold, face is NOT recognized
-    if (!bestMatch || bestDistance > this.FACE_DISTANCE_THRESHOLD) {
+    if (!bestMatch || bestDistance > threshold) {
       throw new UnauthorizedException(
-        `Wajah tidak dikenali. Distance: ${bestDistance.toFixed(4)}. Threshold: ${this.FACE_DISTANCE_THRESHOLD}. Pastikan wajah Anda sudah terdaftar dan disetujui.`,
+        `Wajah tidak dikenali. Distance: ${bestDistance.toFixed(4)}. Threshold: ${threshold}. Pastikan wajah Anda sudah terdaftar dan disetujui.`,
       );
     }
 
@@ -568,6 +591,9 @@ export class AttendanceService {
       );
     }
 
+    // Get dynamic threshold from settings
+    const threshold = await this.getFaceDistanceThreshold();
+
     // Find best face match (lowest distance = best match)
     let bestMatch: any = null;
     let bestDistance = Infinity;
@@ -593,7 +619,7 @@ export class AttendanceService {
     }
 
     // If distance > threshold, face is NOT recognized
-    if (!bestMatch || bestDistance > this.FACE_DISTANCE_THRESHOLD) {
+    if (!bestMatch || bestDistance > threshold) {
       throw new UnauthorizedException(
         `Wajah tidak dikenali. Pastikan wajah Anda sudah terdaftar dan disetujui.`,
       );
@@ -724,6 +750,7 @@ export class AttendanceService {
         name: true,
         faceEmbedding: true,
         faceEmbeddings: true,  // Include multiple embeddings
+        faceImageUrl: true,    // Include face image for display
         updatedAt: true,
       },
     });
@@ -761,15 +788,24 @@ export class AttendanceService {
         embedding: embeddingsList[0] || [],  // First embedding for backward compatibility
         embeddings: embeddingsList,  // All embeddings for multi-match
         embeddingsCount: embeddingsList.length,
+        faceImageUrl: user.faceImageUrl || null,  // Face image for confirmation dialog
         updatedAt: user.updatedAt.getTime(),
       };
     });
+
+    // Get current face recognition settings
+    const faceDistanceThreshold = await this.getFaceDistanceThreshold();
 
     return {
       count: embeddings.length,
       embeddings: embeddings,
       syncTimestamp: Date.now(),
       supportsMultipleEmbeddings: true,
+      // Include settings for Android app to use dynamically
+      settings: {
+        faceDistanceThreshold: faceDistanceThreshold,
+        updatedAt: Date.now(),
+      },
     };
   }
 
@@ -823,4 +859,80 @@ export class AttendanceService {
     };
   }
 
+  /**
+   * Log face match attempt (both success and failure)
+   * Called by Android app after every face matching attempt
+   */
+  async logFaceMatchAttempt(dto: LogAttemptDto) {
+    return this.prisma.faceMatchAttempt.create({
+      data: {
+        attemptType: dto.attemptType,
+        success: dto.success,
+        matchedUserId: dto.matchedUserId || null,
+        matchedUserName: dto.matchedUserName || null,
+        threshold: dto.threshold,
+        bestDistance: dto.bestDistance || null,
+        bestSimilarity: dto.bestSimilarity || null,
+        totalUsersCompared: dto.totalUsersCompared,
+        allMatches: dto.allMatches,
+      },
+    });
+  }
+
+  /**
+   * Get all face match attempts with pagination
+   */
+  async getFaceMatchAttempts(page: number = 1, limit: number = 20) {
+    const skip = (page - 1) * limit;
+
+    const [attempts, total] = await Promise.all([
+      this.prisma.faceMatchAttempt.findMany({
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.faceMatchAttempt.count(),
+    ]);
+
+    return {
+      data: attempts,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get single face match attempt by ID
+   */
+  async getFaceMatchAttemptById(id: string) {
+    const attempt = await this.prisma.faceMatchAttempt.findUnique({
+      where: { id },
+    });
+
+    if (!attempt) {
+      throw new NotFoundException('Face match attempt not found');
+    }
+
+    return attempt;
+  }
+
+  /**
+   * Delete old face match attempts (cleanup)
+   */
+  async deleteOldAttempts(daysOld: number = 30) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+    const result = await this.prisma.faceMatchAttempt.deleteMany({
+      where: {
+        createdAt: { lt: cutoffDate },
+      },
+    });
+
+    return { deleted: result.count };
+  }
 }

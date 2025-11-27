@@ -1,213 +1,221 @@
 # Android Absensi App
 
-Android application untuk sistem absensi dengan Face Recognition dan GPS.
+Android application untuk sistem absensi dengan **On-Device Face Recognition** menggunakan MobileFaceNet.
 
-## ✅ Status: Face Registration Implemented
+## ✅ Status: COMPLETE & READY
 
-Project ini sudah memiliki fitur face registration yang lengkap dan siap digunakan.
+Project ini sudah memiliki fitur face registration dan attendance yang lengkap dengan on-device face recognition.
 
 ### 📦 Yang Sudah Diimplementasi
 
 - ✅ Gradle configuration (build.gradle)
 - ✅ AndroidManifest.xml dengan permissions
 - ✅ Package structure (MVVM + Clean Architecture)
-- ✅ Dependencies setup (Hilt, Retrofit, Room, ML Kit, CameraX)
-- ✅ Constants & Resource wrapper
-- ✅ Data Transfer Objects (DTOs)
+- ✅ Dependencies setup (Hilt, Retrofit, ML Kit, CameraX, TFLite)
+- ✅ **On-Device Face Recognition** (MobileFaceNet TFLite)
+- ✅ **Multi-Pose Registration** (5 foto dari berbagai sudut)
+- ✅ **Attendance Flow** (Check-in/Check-out dengan face verification)
+- ✅ **Embedding Sync** (Download embeddings dari server)
+- ✅ **Late/Early Detection** (Otomatis cek keterlambatan)
+- ✅ **Dynamic Threshold Sync** (Sync threshold dari backend saat retry)
+- ✅ **Identity Confirmation Dialog** (Konfirmasi identitas sebelum submit)
+- ✅ **Face Match Logging** (Log setiap percobaan face matching ke backend)
+- ✅ **Camera Lifecycle Management** (Proper onPause/onResume handling)
 
-### 🎯 Face Registration Feature (NEW!)
+## 🧠 On-Device Face Recognition
 
-- ✅ **CameraActivity** dengan mode switching (attendance/registration)
-- ✅ **ML Kit Face Detection** real-time integration
-- ✅ **ImageUtils** untuk base64 conversion & image resizing
-- ✅ **FaceRegistrationRepository** dengan Retrofit API calls
-- ✅ **HomeFragment** dengan "Rekam Data Wajah" button
-- ✅ **Name input dialog** untuk registration flow
-- ✅ **Network configuration** dengan ADB reverse support
+Sistem ini menggunakan **MobileFaceNet TFLite** untuk face recognition langsung di device Android, **tanpa perlu server ML**.
 
-### 📁 Struktur Package
+### Cara Kerja:
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   ANDROID DEVICE                     │
+├─────────────────────────────────────────────────────┤
+│  1. Kamera menangkap wajah                          │
+│           ↓                                          │
+│  2. ML Kit mendeteksi wajah (validasi posisi)       │
+│           ↓                                          │
+│  3. MobileFaceNet ekstrak embedding (192 dimensi)   │
+│           ↓                                          │
+│  4. Bandingkan dengan embeddings lokal              │
+│     (tersimpan di SharedPreferences)                │
+│           ↓                                          │
+│  5. Hitung jarak Euclidean, cari match terbaik      │
+│           ↓                                          │
+│  6. Jika jarak < threshold (dari backend) → Cocok!  │
+│           ↓                                          │
+│  7. Tampilkan dialog konfirmasi identitas           │
+└─────────────────────────────────────────────────────┘
+                      ↓
+              User konfirmasi → Kirim ke Backend:
+              { userId, type, distance, similarity }
+```
+
+### Model Specifications:
+
+| Spec | Value |
+|------|-------|
+| **Model** | MobileFaceNet TFLite |
+| **Input** | 112x112 RGB |
+| **Output** | 192-dimensional embedding |
+| **Distance Metric** | Euclidean (L2 norm) |
+| **Threshold** | Dynamic dari backend (default: 0.35) |
+| **Accuracy** | 99.55% on LFW |
+
+## 📁 Struktur Package
 
 ```
 com.absensi/
-├── AbsensiApplication.kt       # Application class
+├── AbsensiApplication.kt          # Application class dengan Hilt
 ├── util/
-│   ├── Constants.kt           # ✅ Constants
-│   └── Resource.kt            # ✅ Resource wrapper
+│   ├── Constants.kt               # ✅ Constants & thresholds
+│   ├── Resource.kt                # ✅ Resource wrapper
+│   ├── ImageUtils.kt              # ✅ Image processing
+│   ├── FaceRecognitionHelper.kt   # ✅ MobileFaceNet TFLite
+│   └── EmbeddingStorage.kt        # ✅ Local embedding cache
 ├── data/
-│   ├── local/                 # Room Database (TODO)
 │   ├── remote/
-│   │   ├── api/              # Retrofit APIs (TODO)
-│   │   ├── dto/
-│   │   │   └── AuthDto.kt    # ✅ Auth DTOs
-│   │   └── interceptor/      # Auth interceptor (TODO)
-│   └── repository/           # Repositories (TODO)
-├── domain/
-│   ├── model/                # Domain models (TODO)
-│   └── usecase/              # Use cases (TODO)
+│   │   ├── api/
+│   │   │   ├── ApiService.kt      # ✅ Retrofit interface
+│   │   │   └── RetrofitClient.kt  # ✅ HTTP client
+│   │   └── dto/
+│   │       ├── AuthDto.kt         # ✅ Auth DTOs
+│   │       ├── FaceRegistrationDto.kt  # ✅ Registration DTOs
+│   │       └── AttendanceDto.kt   # ✅ Attendance DTOs
+│   └── repository/
+│       └── FaceRegistrationRepository.kt  # ✅ API integration
 ├── presentation/
-│   ├── auth/                 # Login/Register (TODO)
-│   ├── main/                 # Main Activity (TODO)
-│   ├── attendance/           # Check-in/out (TODO)
-│   ├── face/                 # Face Registration (TODO)
-│   └── profile/              # Profile (TODO)
-└── di/                       # Hilt modules (TODO)
+│   ├── main/
+│   │   ├── MainActivity.kt        # ✅ Main entry point
+│   │   └── HomeFragment.kt        # ✅ Dashboard with stats
+│   └── camera/
+│       └── CameraActivity.kt      # ✅ Face capture & recognition
+└── di/
+    └── NetworkModule.kt           # ✅ Hilt DI modules
 ```
 
 ## 🎯 Implemented Features
 
-### 1. Face Registration Flow ✅
+### 1. Face Registration (Multi-Pose) ✅
 
-**Files Implemented**:
-- `presentation/camera/CameraActivity.kt` - Camera with face detection
-- `presentation/main/HomeFragment.kt` - UI with "Rekam Data" button
-- `data/repository/FaceRegistrationRepository.kt` - API integration
-- `data/remote/api/ApiService.kt` - Retrofit interface
-- `data/remote/api/RetrofitClient.kt` - HTTP client setup
-- `data/remote/dto/FaceRegistrationDto.kt` - Request/Response models
-- `util/ImageUtils.kt` - Image processing utilities
+Pengguna diminta mengambil **5 foto dari sudut berbeda** untuk akurasi maksimal:
 
-**How it works**:
-1. User taps "📸 Rekam Data Wajah" button in HomeFragment
-2. CameraActivity opens in MODE_REGISTRATION
-3. ML Kit detects face in real-time
-4. When face detected, image converted to base64
-5. Name input dialog appears
-6. User enters name and submits
-7. Data sent to backend API
-8. Admin approves in web panel
-9. User account created automatically
+| No | Pose | Emoji | Deskripsi |
+|----|------|-------|-----------|
+| 1 | Depan | 😐 | Wajah lurus ke kamera |
+| 2 | Kiri | 👈 | Toleh sedikit ke kiri |
+| 3 | Kanan | 👉 | Toleh sedikit ke kanan |
+| 4 | Atas | ☝️ | Angkat dagu sedikit |
+| 5 | Bawah | 👇 | Tunduk sedikit |
 
-### 2. Network Configuration ✅
+**Flow:**
+1. User tap "📸 Rekam Data Wajah"
+2. CameraActivity opens dengan pose guide
+3. Capture 5 foto dengan validasi real-time
+4. Ekstrak 5 embeddings menggunakan MobileFaceNet
+5. Kirim ke backend untuk approval admin
+6. Admin approve → User account created
+
+### 2. Attendance (Check-in/Check-out) ✅
+
+**Flow:**
+1. User tap "Absen Masuk" atau "Absen Pulang"
+2. CameraActivity opens untuk face verification
+3. Wajah di-capture dan embedding diekstrak
+4. Dibandingkan dengan embeddings tersimpan
+5. Jika match → konfirmasi dengan foto pendaftaran
+6. User confirm → attendance record created
+7. Backend otomatis cek telat/pulang awal
+
+### 3. Embedding Sync ✅
+
+Embeddings semua user yang approved di-download ke device saat:
+- App pertama kali dibuka
+- Manual refresh
+- Background sync
+- **Saat klik "Coba Lagi"** di dialog error
 
 ```kotlin
-// RetrofitClient.kt
-private const val BASE_URL = "http://localhost:3001/api/"
-
-// Setup ADB reverse for USB connection:
-// adb reverse tcp:3001 tcp:3001
-```
-
-## 🚀 Next Steps untuk Development
-
-### 1. Implement Check-In/Check-Out (TODO)
-
-```kotlin
-// data/remote/api/AuthApi.kt
-interface AuthApi {
-    @POST("auth/login")
-    suspend fun login(@Body request: LoginRequest): LoginResponse
-
-    @POST("auth/register")
-    suspend fun register(@Body request: RegisterRequest): LoginResponse
-
-    @GET("auth/me")
-    suspend fun getProfile(): UserDto
-}
-
-// data/remote/api/AttendanceApi.kt
-interface AttendanceApi {
-    @POST("attendance/verify")
-    suspend fun checkInOut(@Body request: AttendanceRequest): AttendanceResponse
-
-    @GET("attendance/my")
-    suspend fun getMyAttendances(): List<AttendanceResponse>
+// EmbeddingStorage.kt
+fun syncFromServer() {
+    // Download semua approved user embeddings
+    // Download settings (faceDistanceThreshold)
+    // Simpan ke SharedPreferences
+    // Untuk offline capability
 }
 ```
 
-### 2. Implement Dependency Injection
+### 4. Dynamic Threshold Sync ✅
+
+Threshold face matching di-sync dari backend:
 
 ```kotlin
-// di/NetworkModule.kt
-@Module
-@InstallIn(SingletonComponent::class)
-object NetworkModule {
-
-    @Provides
-    @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
-        return OkHttpClient.Builder()
-            .addInterceptor(AuthInterceptor())
-            .addInterceptor(HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
-            })
-            .connectTimeout(Constants.CONNECT_TIMEOUT, TimeUnit.SECONDS)
-            .readTimeout(Constants.READ_TIMEOUT, TimeUnit.SECONDS)
-            .writeTimeout(Constants.WRITE_TIMEOUT, TimeUnit.SECONDS)
-            .build()
+// Response dari /api/attendance/sync-embeddings
+{
+    "settings": {
+        "faceDistanceThreshold": 0.35,
+        "updatedAt": 1764174551290
     }
+}
 
-    @Provides
-    @Singleton
-    fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
-        return Retrofit.Builder()
-            .baseUrl(Constants.BASE_URL)
-            .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-    }
+// CameraActivity.kt - syncThresholdAndRetry()
+// Dipanggil saat user klik "Coba Lagi" di dialog error
+// Sync threshold + embeddings terbaru dari backend
+// Simpan ke EmbeddingStorage.saveFaceThreshold()
+```
 
-    @Provides
-    @Singleton
-    fun provideAuthApi(retrofit: Retrofit): AuthApi {
-        return retrofit.create(AuthApi::class.java)
-    }
+### 5. Identity Confirmation Dialog ✅
+
+Setelah face match berhasil, tampilkan dialog konfirmasi:
+- Menampilkan nama user yang di-match
+- Menampilkan foto registrasi user
+- User bisa konfirmasi atau batal
+- **Face detection STOP** saat dialog muncul (mencegah re-scan)
+
+### 6. Permanent Face Detection Stop ✅
+
+Setelah user konfirmasi profil ("Ya, ini saya"):
+- **`isProfileConfirmed = true`** - Permanent block
+- Face detection STOP TOTAL sampai Activity finish
+- Berlaku untuk CHECK_IN dan CHECK_OUT
+- User harus kembali ke Home untuk scan ulang
+
+### 7. Early Checkout Check Before Dialog ✅
+
+Untuk CHECK_OUT, sistem cek jadwal SEBELUM tampilkan dialog:
+- Jika **early** → Dialog early checkout langsung (dengan info user)
+- Jika **not early** → Dialog konfirmasi identitas normal
+- Cancel early checkout → `isProfileConfirmed = true` (face detection tetap stop)
+
+### 8. Camera Lifecycle Management ✅
+
+Proper handling saat Activity pause/resume:
+- **onPause()**: Release camera resources, set processing flags
+- **onResume()**: Restart camera, reset all state flags
+- **Prevents**: App crash saat switch mode (Masuk ↔ Pulang)
+
+```kotlin
+override fun onPause() {
+    super.onPause()
+    isProcessing = true
+    cameraProvider?.unbindAll()
+}
+
+override fun onResume() {
+    super.onResume()
+    isProcessing = false
+    isProfileConfirmed = false
+    if (cameraProvider != null) startCamera()
 }
 ```
 
-### 3. Implement Face Detection Helper
+### 9. Face Match Logging ✅
 
-```kotlin
-// util/FaceDetectionHelper.kt
-class FaceDetectionHelper(private val context: Context) {
-
-    private val detector: FaceDetector
-
-    init {
-        val options = FaceDetectorOptions.Builder()
-            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
-            .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
-            .setMinFaceSize(Constants.MIN_FACE_SIZE)
-            .build()
-        detector = FaceDetection.getClient(options)
-    }
-
-    suspend fun detectFace(bitmap: Bitmap): List<Face> {
-        val image = InputImage.fromBitmap(bitmap, 0)
-        return detector.process(image).await()
-    }
-}
-```
-
-### 4. Implement UI dengan ViewBinding
-
-```kotlin
-// presentation/auth/LoginActivity.kt
-@AndroidEntryPoint
-class LoginActivity : AppCompatActivity() {
-
-    private lateinit var binding: ActivityLoginBinding
-    private val viewModel: LoginViewModel by viewModels()
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        binding = ActivityLoginBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        setupObservers()
-        setupListeners()
-    }
-
-    private fun setupObservers() {
-        viewModel.loginState.observe(this) { resource ->
-            when (resource) {
-                is Resource.Loading -> showLoading()
-                is Resource.Success -> navigateToMain()
-                is Resource.Error -> showError(resource.message)
-            }
-        }
-    }
-}
-```
+Log setiap percobaan face matching ke backend untuk debugging:
+- Kirim data setelah face matching selesai (sukses/gagal)
+- Includes: threshold, distance, similarity, all comparisons
+- Endpoint: `POST /api/attendance/log-attempt`
 
 ## 📱 Build & Run
 
@@ -215,31 +223,24 @@ class LoginActivity : AppCompatActivity() {
 # 1. Open in Android Studio
 File → Open → Select android folder
 
-# 2. Sync Gradle
+# 2. Download MobileFaceNet model
+# Letakkan file `mobile_face_net.tflite` di:
+# android/app/src/main/assets/mobile_face_net.tflite
+# Lihat assets/README_MODEL.md untuk download link
+
+# 3. Sync Gradle
 Tools → Sync Project with Gradle Files
 
-# 3. Setup ADB Reverse (for USB connection)
+# 4. Setup ADB Reverse (untuk USB connection)
 adb reverse tcp:3001 tcp:3001
-
-# 4. Verify BASE_URL in RetrofitClient.kt
-# Already configured: http://localhost:3001/api/
 
 # 5. Build & Run
 Run → Run 'app'
-
-# 6. Test Face Registration
-# - Tap "📸 Rekam Data Wajah" button
-# - Allow camera permission
-# - Position face in camera view
-# - Wait for face detection
-# - Enter your name when prompted
-# - Submit registration
-# - Check web admin for approval (admin@test.com / admin123)
 ```
 
 ## 🔧 Network Setup
 
-### For Physical Device (USB)
+### For Physical Device (USB) - Recommended
 ```bash
 # Connect device via USB
 adb devices
@@ -249,79 +250,79 @@ adb reverse tcp:3001 tcp:3001
 
 # Verify
 adb reverse --list
-# Should show: tcp:3001 -> tcp:3001
-
-# If connection lost, re-run adb reverse
 ```
 
 ### For Emulator
 ```kotlin
-// Change BASE_URL in RetrofitClient.kt to:
-private const val BASE_URL = "http://10.0.2.2:3001/api/"
+// Change BASE_URL in Constants.kt to:
+const val BASE_URL = "http://10.0.2.2:3001/api/"
 ```
 
 ### For WiFi (Same Network)
 ```kotlin
-// Change BASE_URL in RetrofitClient.kt to:
-private const val BASE_URL = "http://192.168.x.x:3001/api/"
-// Replace x.x with your computer's local IP
+// Change BASE_URL in Constants.kt to:
+const val BASE_URL = "http://192.168.x.x:3001/api/"
 ```
 
-## 🔧 Configuration Checklist
+## 🔧 Configuration
 
-- [ ] Update `BASE_URL` di Constants.kt
-- [ ] Implement AuthInterceptor untuk JWT
-- [ ] Create layout XML files
-- [ ] Implement ViewModels
-- [ ] Add string resources
-- [ ] Add drawable resources
-- [ ] Setup navigation graph
-- [ ] Implement face detection logic
-- [ ] Implement location services
-- [ ] Test on real device
+### Constants.kt
 
-## 📚 Resources & References
+```kotlin
+object Constants {
+    const val BASE_URL = "http://localhost:3001/api/"
 
-- [ML Kit Face Detection](https://developers.google.com/ml-kit/vision/face-detection)
-- [CameraX Guide](https://developer.android.com/training/camerax)
-- [Hilt Dependency Injection](https://developer.android.com/training/dependency-injection/hilt-android)
-- [Retrofit](https://square.github.io/retrofit/)
-- [Room Database](https://developer.android.com/training/data-storage/room)
+    // Face Recognition
+    const val FACE_DISTANCE_THRESHOLD = 0.7f  // Lower = stricter
+    const val MIN_FACE_SIZE = 0.15f
+    const val REQUIRED_STABLE_FRAMES = 15
 
-## 🎯 Implementation Priority
+    // Timeouts
+    const val CONNECT_TIMEOUT = 30L
+    const val READ_TIMEOUT = 30L
+    const val WRITE_TIMEOUT = 60L
+}
+```
 
-1. **Completed ✅**
-   - Face Recording UI
-   - Face Detection integration (ML Kit)
-   - Face Registration API
-   - Base64 image conversion
-   - Network setup (ADB reverse)
+### FaceRecognitionHelper.kt
 
-2. **High Priority (Next)**
-   - Auth (Login/Register)
-   - Main Dashboard
-   - Check-in/Check-out UI with face verification
-   - GPS/Location integration
+```kotlin
+class FaceRecognitionHelper(context: Context) {
+    private val interpreter: Interpreter  // TFLite interpreter
 
-3. **Medium Priority**
-   - Attendance History
-   - Profile Management
-   - Offline support with Room
+    // Extract 192-dim embedding from face bitmap
+    fun getEmbedding(bitmap: Bitmap): FloatArray
 
-4. **Low Priority**
-   - Advanced analytics
-   - Push notifications
-   - App settings
+    // Calculate Euclidean distance between embeddings
+    fun calculateDistance(emb1: FloatArray, emb2: FloatArray): Float
+
+    // Find best match from stored embeddings
+    fun findBestMatch(embedding: FloatArray): MatchResult?
+}
+```
 
 ## ⚠️ Important Notes
 
-- Minimum SDK 24 (Android 7.0)
-- Target SDK 34 (Android 14)
-- Requires Camera & Location permissions
-- ML Kit Face Detection akan auto-download saat pertama kali digunakan
-- Gunakan HTTPS di production
-- Test face detection dengan lighting yang cukup
+- **Minimum SDK**: 24 (Android 7.0)
+- **Target SDK**: 34 (Android 14)
+- **Permissions**: Camera only (no location needed)
+- **Model file**: `mobile_face_net.tflite` harus ada di assets
+- **Lighting**: Pastikan pencahayaan cukup untuk face detection
+- **HTTPS**: Gunakan HTTPS di production
+
+## 📚 Resources & References
+
+- [MobileFaceNet Paper](https://arxiv.org/abs/1804.07573)
+- [ML Kit Face Detection](https://developers.google.com/ml-kit/vision/face-detection)
+- [TensorFlow Lite Android](https://www.tensorflow.org/lite/android)
+- [CameraX Guide](https://developer.android.com/training/camerax)
+- [Hilt Dependency Injection](https://developer.android.com/training/dependency-injection/hilt-android)
 
 ---
 
-Untuk development lengkap, refer ke **ANDROID_GUIDE.md** untuk code examples dan best practices.
+Untuk detail lebih lengkap, lihat **ANDROID_GUIDE.md**.
+
+---
+
+**Last Updated**: November 27, 2025
+**Version**: 2.2.0 (Camera Lifecycle & Face Match Logging)

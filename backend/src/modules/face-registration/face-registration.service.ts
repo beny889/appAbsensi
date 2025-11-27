@@ -10,6 +10,7 @@ import {
   SubmitFaceRegistrationDto,
   ApproveRegistrationDto,
   RejectRegistrationDto,
+  ReplaceFaceDto,
 } from './dto';
 import { RegistrationStatus, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -285,6 +286,77 @@ export class FaceRegistrationService {
         email: result.user.email,
         name: result.user.name,
         role: result.user.role,
+      },
+    };
+  }
+
+  /**
+   * Replace existing user's face data with registration data (admin only)
+   */
+  async replaceUserFace(
+    id: string,
+    dto: ReplaceFaceDto,
+    adminId: string,
+  ) {
+    // Get registration
+    const registration = await this.getRegistrationById(id);
+
+    if (registration.status !== RegistrationStatus.PENDING) {
+      throw new BadRequestException(
+        `Registration has already been ${registration.status.toLowerCase()}`,
+      );
+    }
+
+    // Check if user exists
+    const user = await this.prisma.user.findUnique({
+      where: { id: dto.userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.isActive) {
+      throw new BadRequestException('Cannot replace face data for inactive user');
+    }
+
+    // Update user face data and registration status in a transaction
+    const result = await this.prisma.$transaction(async (tx) => {
+      // First, unlink any existing registration from this user (due to unique constraint)
+      await tx.faceRegistration.updateMany({
+        where: { userId: dto.userId },
+        data: { userId: null },
+      });
+
+      // Update user's face data
+      const updatedUser = await tx.user.update({
+        where: { id: dto.userId },
+        data: {
+          faceEmbedding: registration.faceEmbedding,
+          faceEmbeddings: registration.faceEmbeddings,
+          faceImageUrl: registration.faceImageUrl,
+        },
+      });
+
+      // Update registration status and link to user
+      const updatedRegistration = await tx.faceRegistration.update({
+        where: { id },
+        data: {
+          status: RegistrationStatus.APPROVED,
+          userId: dto.userId,
+          reviewedBy: adminId,
+          reviewedAt: new Date(),
+        },
+      });
+
+      return { user: updatedUser, registration: updatedRegistration };
+    });
+
+    return {
+      message: 'Face data replaced successfully',
+      user: {
+        id: result.user.id,
+        name: result.user.name,
       },
     };
   }

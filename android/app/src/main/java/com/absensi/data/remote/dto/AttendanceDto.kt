@@ -204,7 +204,23 @@ data class SyncEmbeddingsResponse(
     val syncTimestamp: Long,
 
     @SerializedName("supportsMultipleEmbeddings")
-    val supportsMultipleEmbeddings: Boolean? = false
+    val supportsMultipleEmbeddings: Boolean? = false,
+
+    // Settings from server for dynamic threshold
+    @SerializedName("settings")
+    val settings: FaceRecognitionSettings? = null
+)
+
+/**
+ * Face recognition settings from server
+ * Used for dynamic threshold configuration
+ */
+data class FaceRecognitionSettings(
+    @SerializedName("faceDistanceThreshold")
+    val faceDistanceThreshold: Float,
+
+    @SerializedName("updatedAt")
+    val updatedAt: Long? = null
 )
 
 /**
@@ -230,6 +246,10 @@ data class UserEmbeddingDto(
     @SerializedName("embeddingsCount")
     val embeddingsCount: Int? = 1,
 
+    // Face image URL for confirmation dialog
+    @SerializedName("faceImageUrl")
+    val faceImageUrl: String? = null,
+
     @SerializedName("updatedAt")
     val updatedAt: Long
 )
@@ -250,4 +270,75 @@ data class VerifyDeviceRequest(
 
     @SerializedName("similarity")
     val similarity: Float? = null
+)
+
+/**
+ * Request for logging face match attempt
+ * Logs every face matching attempt (success or failure) for debugging
+ */
+data class LogAttemptRequest(
+    @SerializedName("attemptType")
+    val attemptType: String, // CHECK_IN or CHECK_OUT
+
+    @SerializedName("success")
+    val success: Boolean,
+
+    @SerializedName("matchedUserId")
+    val matchedUserId: String? = null,
+
+    @SerializedName("matchedUserName")
+    val matchedUserName: String? = null,
+
+    @SerializedName("threshold")
+    val threshold: Float,
+
+    @SerializedName("bestDistance")
+    val bestDistance: Float? = null,
+
+    @SerializedName("bestSimilarity")
+    val bestSimilarity: Float? = null,
+
+    @SerializedName("totalUsersCompared")
+    val totalUsersCompared: Int,
+
+    @SerializedName("allMatches")
+    val allMatches: String // JSON string of all user comparisons
+)
+
+/**
+ * Response for log attempt
+ */
+data class LogAttemptResponse(
+    @SerializedName("id")
+    val id: String,
+
+    @SerializedName("attemptType")
+    val attemptType: String,
+
+    @SerializedName("success")
+    val success: Boolean,
+
+    @SerializedName("createdAt")
+    val createdAt: String
+)
+
+/**
+ * Response for user schedule endpoint
+ * Used for early checkout confirmation flow
+ */
+data class UserScheduleResponse(
+    @SerializedName("hasSchedule")
+    val hasSchedule: Boolean,
+
+    @SerializedName("checkInTime")
+    val checkInTime: String? = null,
+
+    @SerializedName("checkOutTime")
+    val checkOutTime: String? = null,
+
+    @SerializedName("departmentName")
+    val departmentName: String? = null,
+
+    @SerializedName("message")
+    val message: String? = null
 )

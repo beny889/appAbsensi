@@ -92,4 +92,22 @@ interface ApiService {
     suspend fun verifyDevice(
         @Body request: VerifyDeviceRequest
     ): Response<AttendanceResponse>
+
+    /**
+     * Log face match attempt (NO authentication required)
+     * Logs every face matching attempt for debugging purposes
+     */
+    @POST("attendance/log-attempt")
+    suspend fun logAttempt(
+        @Body request: LogAttemptRequest
+    ): Response<LogAttemptResponse>
+
+    /**
+     * Get user's work schedule by userId (NO authentication required)
+     * Used for early checkout confirmation flow
+     */
+    @GET("attendance/schedule/{userId}")
+    suspend fun getUserSchedule(
+        @Path("userId") userId: String
+    ): Response<UserScheduleResponse>
 }

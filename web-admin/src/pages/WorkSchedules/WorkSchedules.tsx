@@ -34,6 +34,7 @@ import {
 } from '@mui/icons-material';
 import { workScheduleApi, departmentApi } from '@/api';
 import { WorkSchedule, CreateWorkScheduleDto, UpdateWorkScheduleDto, Department } from '@/types';
+import { usePageTitle } from '@/contexts/PageTitleContext';
 import toast from 'react-hot-toast';
 
 export default function WorkSchedules() {
@@ -48,6 +49,8 @@ export default function WorkSchedules() {
     checkOutTime: '17:00',
     isActive: true,
   });
+
+  usePageTitle('Jadwal Kerja', 'Kelola jadwal kerja per departemen');
 
   useEffect(() => {
     loadData();
@@ -152,16 +155,7 @@ export default function WorkSchedules() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h4" gutterBottom fontWeight="bold">
-            <ScheduleIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-            Konfigurasi Jadwal Kerja
-          </Typography>
-          <Typography variant="body1" color="textSecondary">
-            Atur jam masuk dan jam pulang untuk setiap departemen
-          </Typography>
-        </Box>
+      <Box display="flex" justifyContent="flex-end" mb={2}>
         <Button
           variant="contained"
           color="primary"

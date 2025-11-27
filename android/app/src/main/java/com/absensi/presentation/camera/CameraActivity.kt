@@ -25,6 +25,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.absensi.databinding.ActivityCameraBinding
 import com.absensi.data.local.EmbeddingStorage
+import com.absensi.data.remote.dto.UserScheduleResponse
 import com.absensi.data.repository.AttendanceRepository
 import com.absensi.data.repository.FaceRegistrationRepository
 import com.absensi.ml.FaceRecognitionHelper
@@ -56,6 +57,8 @@ class CameraActivity : AppCompatActivity() {
     private var isCheckIn: Boolean = true
     private var isFaceDetected = false
     private var isProcessing = false
+    private var isShowingConfirmationDialog = false  // Block face detection when dialog is showing
+    private var isProfileConfirmed = false  // Permanent block after profile confirmed - stops face detection until Activity finishes
     private var activityMode: String = MODE_ATTENDANCE
     private var userName: String = ""  // Store user name for registration
 
@@ -147,6 +150,8 @@ class CameraActivity : AppCompatActivity() {
 
         // For REGISTRATION mode, ask for name FIRST before starting camera
         if (activityMode == MODE_REGISTRATION) {
+            // Hide threshold badge for registration mode (not needed)
+            binding.tvThresholdBadge.visibility = android.view.View.GONE
             showNameInputDialog()  // Show name dialog immediately
         } else {
             // For attendance mode, initialize face recognition and sync embeddings
@@ -199,15 +204,25 @@ class CameraActivity : AppCompatActivity() {
                                     name = dto.name,
                                     embedding = dto.embedding.toFloatArray(),  // Primary for backward compat
                                     embeddings = multiEmbeddings,  // Multiple for better accuracy
+                                    faceImageUrl = dto.faceImageUrl,  // Face image for confirmation
                                     updatedAt = dto.updatedAt
                                 )
                             }
                             embeddingStorage.saveEmbeddings(userEmbeddings)
                             embeddingStorage.setLastSyncTimestamp(response.syncTimestamp)
+
+                            // Save face recognition threshold from server settings
+                            response.settings?.let { settings ->
+                                embeddingStorage.saveFaceThreshold(settings.faceDistanceThreshold)
+                                Log.d(TAG, "✓ Saved face threshold from server: ${settings.faceDistanceThreshold}")
+                            }
                         }
 
                         isOnDeviceReady = true
                         binding.progressBar.visibility = android.view.View.GONE
+
+                        // Update threshold badge for debugging
+                        updateThresholdBadge()
 
                         // Start camera
                         if (checkPermissions()) {
@@ -224,6 +239,9 @@ class CameraActivity : AppCompatActivity() {
                             Log.d(TAG, "Using cached embeddings (${embeddingStorage.getEmbeddingsCount()} users)")
                             isOnDeviceReady = true
                             binding.progressBar.visibility = android.view.View.GONE
+
+                            // Update threshold badge for debugging
+                            updateThresholdBadge()
 
                             if (checkPermissions()) {
                                 startCamera()
@@ -260,6 +278,29 @@ class CameraActivity : AppCompatActivity() {
                 }
             }
             else -> if (isCheckIn) "Scan Wajah untuk Masuk" else "Scan Wajah untuk Pulang"
+        }
+    }
+
+    /**
+     * Update threshold badge for debugging purposes
+     * Shows current face distance threshold from settings
+     */
+    private fun updateThresholdBadge() {
+        CoroutineScope(Dispatchers.Main).launch {
+            val threshold = withContext(Dispatchers.IO) {
+                embeddingStorage.getFaceThreshold()
+            }
+            val thresholdPercent = (threshold * 100).toInt()
+            val label = when {
+                threshold >= 0.9f -> "Sangat Longgar"
+                threshold >= 0.7f -> "Longgar"
+                threshold >= 0.5f -> "Normal"
+                threshold >= 0.3f -> "Ketat"
+                else -> "Sangat Ketat"
+            }
+            binding.tvThresholdBadge.text = "T: $thresholdPercent% ($label)"
+            binding.tvThresholdBadge.visibility = android.view.View.VISIBLE
+            Log.d(TAG, "Threshold badge updated: $thresholdPercent% - $label")
         }
     }
 
@@ -363,7 +404,7 @@ class CameraActivity : AppCompatActivity() {
 
     @androidx.camera.core.ExperimentalGetImage
     private fun processImageProxy(imageProxy: ImageProxy) {
-        if (isProcessing || isInTransition) {
+        if (isProcessing || isInTransition || isShowingConfirmationDialog || isProfileConfirmed) {
             imageProxy.close()
             return
         }
@@ -647,12 +688,59 @@ class CameraActivity : AppCompatActivity() {
                 }
 
                 // Find best match on-device using multi-embeddings
+                // Use threshold from server settings (synced to local storage)
+                val threshold = withContext(Dispatchers.IO) {
+                    embeddingStorage.getFaceThreshold()
+                }
+                Log.d(TAG, "Using face threshold: $threshold")
+
                 updateStatus("Mencocokkan wajah...")
-                val matchResult = faceRecognitionHelper.findBestMatchMulti(
+                // Use new function that returns detailed matching info for logging
+                val matchResultWithLog = faceRecognitionHelper.findBestMatchMultiWithLog(
                     embedding,
                     storedMultiEmbeddings,
-                    FaceRecognitionHelper.DISTANCE_THRESHOLD
+                    userNames,
+                    threshold
                 )
+
+                val matchResult = matchResultWithLog.bestMatch
+                val allMatches = matchResultWithLog.allMatches
+
+                // Build JSON for all matches
+                val allMatchesJson = buildString {
+                    append("[")
+                    allMatches.forEachIndexed { index, match ->
+                        if (index > 0) append(",")
+                        append("{")
+                        append("\"rank\":${index + 1},")
+                        append("\"odId\":\"${match.odId}\",")
+                        append("\"name\":\"${match.name}\",")
+                        append("\"distance\":${match.distance},")
+                        append("\"similarity\":${match.similarity},")
+                        append("\"isMatch\":${match.isMatch}")
+                        append("}")
+                    }
+                    append("]")
+                }
+
+                // Log attempt to backend (fire and forget - don't block main flow)
+                val attemptType = if (isCheckIn) "CHECK_IN" else "CHECK_OUT"
+                val bestDistance = allMatches.firstOrNull()?.distance
+                val bestSimilarity = allMatches.firstOrNull()?.similarity?.toFloat()
+
+                CoroutineScope(Dispatchers.IO).launch {
+                    attendanceRepository.logFaceMatchAttempt(
+                        attemptType = attemptType,
+                        success = matchResult != null,
+                        matchedUserId = matchResult?.first,
+                        matchedUserName = if (matchResult != null) userNames[matchResult.first] else null,
+                        threshold = threshold,
+                        bestDistance = bestDistance,
+                        bestSimilarity = bestSimilarity,
+                        totalUsersCompared = allMatches.size,
+                        allMatchesJson = allMatchesJson
+                    )
+                }
 
                 if (matchResult == null) {
                     throw Exception("Wajah tidak dikenali. Pastikan wajah Anda sudah terdaftar dan disetujui admin.")
@@ -663,72 +751,130 @@ class CameraActivity : AppCompatActivity() {
                 // Better similarity formula: threshold (1.0) maps to 50%, distance 0 maps to 100%
                 val similarity = (1 - distance / 2).coerceIn(0f, 1f)
 
+                // Get face image URL from storage for confirmation dialog
+                val faceImageUrls = withContext(Dispatchers.IO) {
+                    embeddingStorage.getFaceImageUrlMap()
+                }
+                val registrationPhotoUrl = faceImageUrls[matchedOdId]
+
                 Log.d(TAG, "✓ Face matched: $matchedName (distance: $distance, similarity: ${String.format("%.1f", similarity * 100)}%)")
+                Log.d(TAG, "Registration photo URL: $registrationPhotoUrl")
 
-                // Hide progress bar before showing confirmation dialog
-                binding.progressBar.visibility = android.view.View.GONE
-                isProcessing = false
+                // For CHECK_OUT, check early BEFORE showing confirmation dialog
+                if (!isCheckIn) {
+                    // Use getUserSchedule instead of verifyFaceOnly to avoid redundant face recognition
+                    updateStatus("Memeriksa jadwal...")
+                    val scheduleResult = withContext(Dispatchers.IO) {
+                        attendanceRepository.getUserSchedule(matchedOdId)
+                    }
 
-                // Show identity confirmation dialog
-                showIdentityConfirmationDialog(
-                    matchedName = matchedName,
-                    faceImageBase64 = faceImageBase64,
-                    onConfirm = {
-                        // User confirmed identity - proceed with attendance
-                        isProcessing = true
-                        binding.progressBar.visibility = android.view.View.VISIBLE
-                        updateStatus("Memproses absensi...")
+                    scheduleResult.fold(
+                        onSuccess = { scheduleInfo: UserScheduleResponse ->
+                            // Flag is now set inside dialog functions - no need to set here
+                            binding.progressBar.visibility = android.view.View.GONE
+                            isProcessing = false
 
-                        CoroutineScope(Dispatchers.Main).launch {
-                            // For CHECK_OUT, check early checkout
-                            if (!isCheckIn) {
-                                // Get schedule from server for early checkout check
-                                val scheduleResult = withContext(Dispatchers.IO) {
-                                    attendanceRepository.verifyFaceOnly(faceImageBase64)
+                            if (scheduleInfo.hasSchedule && scheduleInfo.checkOutTime != null) {
+                                val earlyMinutes = calculateEarlyMinutes(scheduleInfo.checkOutTime)
+                                if (earlyMinutes > 0) {
+                                    // EARLY CHECKOUT - show early confirmation dialog with identity info
+                                    showEarlyCheckoutConfirmationOnDevice(
+                                        userName = matchedName,
+                                        odId = matchedOdId,
+                                        distance = distance,
+                                        similarity = similarity,
+                                        scheduledTime = scheduleInfo.checkOutTime,
+                                        earlyMinutes = earlyMinutes
+                                    )
+                                    return@launch
                                 }
-
-                                scheduleResult.fold(
-                                    onSuccess = { scheduleInfo ->
-                                        if (scheduleInfo.hasSchedule && scheduleInfo.checkOutTime != null) {
-                                            val earlyMinutes = calculateEarlyMinutes(scheduleInfo.checkOutTime)
-                                            if (earlyMinutes > 0) {
-                                                binding.progressBar.visibility = android.view.View.GONE
-                                                isProcessing = false
-                                                showEarlyCheckoutConfirmationOnDevice(
-                                                    userName = matchedName,
-                                                    odId = matchedOdId,
-                                                    distance = distance,
-                                                    similarity = similarity,
-                                                    scheduledTime = scheduleInfo.checkOutTime,
-                                                    earlyMinutes = earlyMinutes
-                                                )
-                                                return@launch
-                                            }
-                                        }
-                                        // Not early - proceed with device-verified checkout
-                                        proceedWithDeviceVerifiedAttendance(matchedOdId, attendanceType, distance, similarity, matchedName)
-                                    },
-                                    onFailure = {
-                                        // Can't get schedule, proceed anyway
+                            }
+                            // Not early - show normal identity confirmation
+                            showIdentityConfirmationDialog(
+                                matchedName = matchedName,
+                                registrationPhotoUrl = registrationPhotoUrl,
+                                onConfirm = {
+                                    isProfileConfirmed = true
+                                    isShowingConfirmationDialog = false
+                                    isProcessing = true
+                                    binding.progressBar.visibility = android.view.View.VISIBLE
+                                    updateStatus("Memproses Pulang...")
+                                    CoroutineScope(Dispatchers.Main).launch {
                                         proceedWithDeviceVerifiedAttendance(matchedOdId, attendanceType, distance, similarity, matchedName)
                                     }
-                                )
-                            } else {
-                                // CHECK_IN - proceed with device-verified attendance
+                                },
+                                onCancel = {
+                                    isShowingConfirmationDialog = false
+                                    stableFrameCount = 0
+                                    lastFaceBounds = null
+                                    isFaceDetected = false
+                                    isCountingDown = false
+                                    isProcessing = false
+                                    updateStatus("Posisikan wajah dalam bingkai")
+                                }
+                            )
+                        },
+                        onFailure = {
+                            // Can't get schedule, show normal identity confirmation
+                            // Flag is now set inside dialog function - no need to set here
+                            binding.progressBar.visibility = android.view.View.GONE
+                            isProcessing = false
+                            showIdentityConfirmationDialog(
+                                matchedName = matchedName,
+                                registrationPhotoUrl = registrationPhotoUrl,
+                                onConfirm = {
+                                    isProfileConfirmed = true
+                                    isShowingConfirmationDialog = false
+                                    isProcessing = true
+                                    binding.progressBar.visibility = android.view.View.VISIBLE
+                                    updateStatus("Memproses Pulang...")
+                                    CoroutineScope(Dispatchers.Main).launch {
+                                        proceedWithDeviceVerifiedAttendance(matchedOdId, attendanceType, distance, similarity, matchedName)
+                                    }
+                                },
+                                onCancel = {
+                                    isShowingConfirmationDialog = false
+                                    stableFrameCount = 0
+                                    lastFaceBounds = null
+                                    isFaceDetected = false
+                                    isCountingDown = false
+                                    isProcessing = false
+                                    updateStatus("Posisikan wajah dalam bingkai")
+                                }
+                            )
+                        }
+                    )
+                } else {
+                    // CHECK_IN - show identity confirmation dialog directly
+                    // Flag is now set inside dialog function - no need to set here
+                    binding.progressBar.visibility = android.view.View.GONE
+                    isProcessing = false
+
+                    showIdentityConfirmationDialog(
+                        matchedName = matchedName,
+                        registrationPhotoUrl = registrationPhotoUrl,
+                        onConfirm = {
+                            isProfileConfirmed = true
+                            isShowingConfirmationDialog = false
+                            isProcessing = true
+                            binding.progressBar.visibility = android.view.View.VISIBLE
+                            updateStatus("Memproses Masuk...")
+                            CoroutineScope(Dispatchers.Main).launch {
                                 proceedWithDeviceVerifiedAttendance(matchedOdId, attendanceType, distance, similarity, matchedName)
                             }
+                        },
+                        onCancel = {
+                            // User rejected identity - reset for new scan
+                            isShowingConfirmationDialog = false
+                            stableFrameCount = 0
+                            lastFaceBounds = null
+                            isFaceDetected = false
+                            isCountingDown = false
+                            isProcessing = false
+                            updateStatus("Posisikan wajah dalam bingkai")
                         }
-                    },
-                    onCancel = {
-                        // User rejected identity - reset for new scan
-                        stableFrameCount = 0
-                        lastFaceBounds = null
-                        isFaceDetected = false
-                        isCountingDown = false
-                        isProcessing = false
-                        updateStatus("Posisikan wajah dalam bingkai")
-                    }
-                )
+                    )
+                }
 
             } catch (e: Exception) {
                 Log.e(TAG, "✗ On-device face recognition failed: ${e.message}")
@@ -812,55 +958,85 @@ class CameraActivity : AppCompatActivity() {
         scheduledTime: String,
         earlyMinutes: Int
     ) {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_early_checkout, null)
-
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .setCancelable(false)
-            .create()
-
-        val tvUserName = dialogView.findViewById<TextView>(R.id.tvUserName)
-        val tvCurrentTime = dialogView.findViewById<TextView>(R.id.tvCurrentTime)
-        val tvScheduledTime = dialogView.findViewById<TextView>(R.id.tvScheduledTime)
-        val tvEarlyMinutes = dialogView.findViewById<TextView>(R.id.tvEarlyMinutes)
-        val btnConfirm = dialogView.findViewById<MaterialButton>(R.id.btnConfirm)
-        val btnCancel = dialogView.findViewById<MaterialButton>(R.id.btnCancel)
-
-        tvUserName.text = userName
-        tvCurrentTime.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Calendar.getInstance().time)
-        tvScheduledTime.text = scheduledTime
-        tvEarlyMinutes.text = "$earlyMinutes menit"
-
-        btnConfirm.setOnClickListener {
-            dialog.dismiss()
-            isProcessing = true
-            binding.progressBar.visibility = android.view.View.VISIBLE
-            updateStatus("Memproses Pulang...")
-            proceedWithDeviceVerifiedAttendance(odId, "CHECK_OUT", distance, similarity, userName)
+        // Guard: Don't show dialog if Activity is finishing/destroyed
+        if (isFinishing || isDestroyed) {
+            Log.w(TAG, "Activity is finishing/destroyed, skipping early checkout dialog")
+            isShowingConfirmationDialog = false
+            return
         }
 
-        btnCancel.setOnClickListener {
-            dialog.dismiss()
-            stableFrameCount = 0
-            lastFaceBounds = null
-            isFaceDetected = false
-            isCountingDown = false
+        isShowingConfirmationDialog = true  // Block face detection while dialog is showing
+
+        try {
+            val dialogView = layoutInflater.inflate(R.layout.dialog_early_checkout, null)
+
+            val dialog = AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setCancelable(false)
+                .create()
+
+            val tvUserName = dialogView.findViewById<TextView>(R.id.tvUserName)
+            val tvCurrentTime = dialogView.findViewById<TextView>(R.id.tvCurrentTime)
+            val tvScheduledTime = dialogView.findViewById<TextView>(R.id.tvScheduledTime)
+            val tvEarlyMinutes = dialogView.findViewById<TextView>(R.id.tvEarlyMinutes)
+            val btnConfirm = dialogView.findViewById<MaterialButton>(R.id.btnConfirm)
+            val btnCancel = dialogView.findViewById<MaterialButton>(R.id.btnCancel)
+
+            tvUserName.text = userName
+            tvCurrentTime.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Calendar.getInstance().time)
+            tvScheduledTime.text = scheduledTime
+            tvEarlyMinutes.text = "$earlyMinutes menit"
+
+            btnConfirm.setOnClickListener {
+                dialog.dismiss()
+                // Face recognition STOP TOTAL setelah konfirmasi pulang awal
+                isProfileConfirmed = true
+                isShowingConfirmationDialog = false
+                isProcessing = true
+                binding.progressBar.visibility = android.view.View.VISIBLE
+                updateStatus("Memproses Pulang...")
+                proceedWithDeviceVerifiedAttendance(odId, "CHECK_OUT", distance, similarity, userName)
+            }
+
+            btnCancel.setOnClickListener {
+                dialog.dismiss()
+                // Allow user to scan again - reset state for retry
+                isShowingConfirmationDialog = false
+                stableFrameCount = 0
+                lastFaceBounds = null
+                isFaceDetected = false
+                isCountingDown = false
+                isProcessing = false
+                updateStatus("Posisikan wajah dalam bingkai")
+            }
+
+            // Safety: Reset state if dialog is dismissed unexpectedly (by system)
+            dialog.setOnDismissListener {
+                // Only reset if not already handled by buttons
+                if (isShowingConfirmationDialog) {
+                    isShowingConfirmationDialog = false
+                    isProcessing = false
+                }
+            }
+
+            dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            dialog.show()
+
+            val iconContainer = dialogView.findViewById<android.widget.FrameLayout>(R.id.iconContainer)
+            iconContainer?.let {
+                it.scaleX = 0f
+                it.scaleY = 0f
+                it.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(300)
+                    .setInterpolator(android.view.animation.OvershootInterpolator())
+                    .start()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to show early checkout dialog: ${e.message}")
+            isShowingConfirmationDialog = false
             isProcessing = false
-        }
-
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        dialog.show()
-
-        val iconContainer = dialogView.findViewById<android.widget.FrameLayout>(R.id.iconContainer)
-        iconContainer?.let {
-            it.scaleX = 0f
-            it.scaleY = 0f
-            it.animate()
-                .scaleX(1f)
-                .scaleY(1f)
-                .setDuration(300)
-                .setInterpolator(android.view.animation.OvershootInterpolator())
-                .start()
         }
     }
 
@@ -910,49 +1086,78 @@ class CameraActivity : AppCompatActivity() {
 
     /**
      * Show identity confirmation dialog before proceeding with attendance
+     * Displays the registration photo (from database) for user to confirm identity
      */
     private fun showIdentityConfirmationDialog(
         matchedName: String,
-        faceImageBase64: String,
+        registrationPhotoUrl: String?,
         onConfirm: () -> Unit,
         onCancel: () -> Unit
     ) {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_identity_confirmation, null)
-
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .setCancelable(false)
-            .create()
-
-        // Get views
-        val ivUserPhoto = dialogView.findViewById<ImageView>(R.id.ivUserPhoto)
-        val tvName = dialogView.findViewById<TextView>(R.id.tvName)
-        val btnConfirm = dialogView.findViewById<MaterialButton>(R.id.btnConfirm)
-        val btnCancel = dialogView.findViewById<MaterialButton>(R.id.btnCancel)
-
-        // Set user photo from base64
-        val faceBitmap = ImageUtils.base64ToBitmap(faceImageBase64)
-        if (faceBitmap != null) {
-            ivUserPhoto.setImageBitmap(faceBitmap)
+        // Guard: Don't show if dialog already showing or Activity is finishing
+        if (isShowingConfirmationDialog || isFinishing || isDestroyed) {
+            Log.w(TAG, "Dialog already showing or Activity finishing, skipping identity dialog")
+            return
         }
 
-        // Set name
-        tvName.text = matchedName
+        isShowingConfirmationDialog = true  // Set flag inside function to prevent race condition
 
-        // Button click handlers
-        btnConfirm.setOnClickListener {
-            dialog.dismiss()
-            onConfirm()
+        try {
+            val dialogView = layoutInflater.inflate(R.layout.dialog_identity_confirmation, null)
+
+            val dialog = AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setCancelable(false)
+                .create()
+
+            // Get views
+            val ivUserPhoto = dialogView.findViewById<ImageView>(R.id.ivUserPhoto)
+            val tvName = dialogView.findViewById<TextView>(R.id.tvName)
+            val btnConfirm = dialogView.findViewById<MaterialButton>(R.id.btnConfirm)
+            val btnCancel = dialogView.findViewById<MaterialButton>(R.id.btnCancel)
+
+            // Load registration photo from URL using Glide
+            if (!registrationPhotoUrl.isNullOrEmpty()) {
+                Log.d(TAG, "Loading registration photo from URL: $registrationPhotoUrl")
+                com.bumptech.glide.Glide.with(this)
+                    .load(registrationPhotoUrl)
+                    .placeholder(android.R.drawable.ic_menu_gallery)
+                    .error(android.R.drawable.ic_menu_gallery)
+                    .circleCrop()
+                    .into(ivUserPhoto)
+            } else {
+                Log.w(TAG, "No registration photo URL available")
+                ivUserPhoto.setImageResource(android.R.drawable.ic_menu_gallery)
+            }
+
+            // Set name
+            tvName.text = matchedName
+
+            // Button click handlers
+            btnConfirm.setOnClickListener {
+                dialog.dismiss()
+                onConfirm()
+            }
+
+            btnCancel.setOnClickListener {
+                dialog.dismiss()
+                onCancel()
+            }
+
+            // Safety: Reset state if dialog is dismissed unexpectedly (by system)
+            dialog.setOnDismissListener {
+                if (isShowingConfirmationDialog) {
+                    isShowingConfirmationDialog = false
+                }
+            }
+
+            // Show dialog with transparent background
+            dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            dialog.show()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to show identity dialog: ${e.message}")
+            isShowingConfirmationDialog = false
         }
-
-        btnCancel.setOnClickListener {
-            dialog.dismiss()
-            onCancel()
-        }
-
-        // Show dialog with transparent background
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        dialog.show()
     }
 
     /**
@@ -992,62 +1197,88 @@ class CameraActivity : AppCompatActivity() {
         earlyMinutes: Int,
         faceImageBase64: String
     ) {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_early_checkout, null)
-
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .setCancelable(false)
-            .create()
-
-        // Get views
-        val tvUserName = dialogView.findViewById<TextView>(R.id.tvUserName)
-        val tvCurrentTime = dialogView.findViewById<TextView>(R.id.tvCurrentTime)
-        val tvScheduledTime = dialogView.findViewById<TextView>(R.id.tvScheduledTime)
-        val tvEarlyMinutes = dialogView.findViewById<TextView>(R.id.tvEarlyMinutes)
-        val btnConfirm = dialogView.findViewById<MaterialButton>(R.id.btnConfirm)
-        val btnCancel = dialogView.findViewById<MaterialButton>(R.id.btnCancel)
-
-        // Set values
-        tvUserName.text = userName
-        tvCurrentTime.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Calendar.getInstance().time)
-        tvScheduledTime.text = scheduledTime
-        tvEarlyMinutes.text = "$earlyMinutes menit"
-
-        // Button click handlers
-        btnConfirm.setOnClickListener {
-            dialog.dismiss()
-            // Proceed with checkout
-            isProcessing = true
-            binding.progressBar.visibility = android.view.View.VISIBLE
-            updateStatus("Memproses Pulang...")
-            proceedWithAttendance(faceImageBase64, "CHECK_OUT")
+        // Guard: Don't show dialog if Activity is finishing/destroyed
+        if (isFinishing || isDestroyed) {
+            Log.w(TAG, "Activity is finishing/destroyed, skipping early checkout dialog")
+            isShowingConfirmationDialog = false
+            return
         }
 
-        btnCancel.setOnClickListener {
-            dialog.dismiss()
-            // Reset state
-            stableFrameCount = 0
-            lastFaceBounds = null
-            isFaceDetected = false
-            isCountingDown = false
+        isShowingConfirmationDialog = true  // Block face detection while dialog is showing
+
+        try {
+            val dialogView = layoutInflater.inflate(R.layout.dialog_early_checkout, null)
+
+            val dialog = AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setCancelable(false)
+                .create()
+
+            // Get views
+            val tvUserName = dialogView.findViewById<TextView>(R.id.tvUserName)
+            val tvCurrentTime = dialogView.findViewById<TextView>(R.id.tvCurrentTime)
+            val tvScheduledTime = dialogView.findViewById<TextView>(R.id.tvScheduledTime)
+            val tvEarlyMinutes = dialogView.findViewById<TextView>(R.id.tvEarlyMinutes)
+            val btnConfirm = dialogView.findViewById<MaterialButton>(R.id.btnConfirm)
+            val btnCancel = dialogView.findViewById<MaterialButton>(R.id.btnCancel)
+
+            // Set values
+            tvUserName.text = userName
+            tvCurrentTime.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Calendar.getInstance().time)
+            tvScheduledTime.text = scheduledTime
+            tvEarlyMinutes.text = "$earlyMinutes menit"
+
+            // Button click handlers
+            btnConfirm.setOnClickListener {
+                dialog.dismiss()
+                isShowingConfirmationDialog = false
+                // Proceed with checkout
+                isProcessing = true
+                binding.progressBar.visibility = android.view.View.VISIBLE
+                updateStatus("Memproses Pulang...")
+                proceedWithAttendance(faceImageBase64, "CHECK_OUT")
+            }
+
+            btnCancel.setOnClickListener {
+                dialog.dismiss()
+                isShowingConfirmationDialog = false
+                // Reset state for retry
+                stableFrameCount = 0
+                lastFaceBounds = null
+                isFaceDetected = false
+                isCountingDown = false
+                isProcessing = false
+                updateStatus("Posisikan wajah dalam bingkai")
+            }
+
+            // Safety: Reset state if dialog is dismissed unexpectedly (by system)
+            dialog.setOnDismissListener {
+                if (isShowingConfirmationDialog) {
+                    isShowingConfirmationDialog = false
+                    isProcessing = false
+                }
+            }
+
+            // Show dialog
+            dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            dialog.show()
+
+            // Animate icon
+            val iconContainer = dialogView.findViewById<android.widget.FrameLayout>(R.id.iconContainer)
+            iconContainer?.let {
+                it.scaleX = 0f
+                it.scaleY = 0f
+                it.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(300)
+                    .setInterpolator(android.view.animation.OvershootInterpolator())
+                    .start()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to show early checkout dialog: ${e.message}")
+            isShowingConfirmationDialog = false
             isProcessing = false
-        }
-
-        // Show dialog
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        dialog.show()
-
-        // Animate icon
-        val iconContainer = dialogView.findViewById<android.widget.FrameLayout>(R.id.iconContainer)
-        iconContainer?.let {
-            it.scaleX = 0f
-            it.scaleY = 0f
-            it.animate()
-                .scaleX(1f)
-                .scaleY(1f)
-                .setDuration(300)
-                .setInterpolator(android.view.animation.OvershootInterpolator())
-                .start()
         }
     }
 
@@ -1451,19 +1682,14 @@ class CameraActivity : AppCompatActivity() {
     }
 
     /**
-     * Show registration success dialog with embeddings count
+     * Show registration success dialog with embeddings count - Modern style
      */
     private fun showRegistrationSuccessDialog(embeddingsCount: Int) {
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-            .setIcon(android.R.drawable.ic_dialog_info)
-            .setTitle("Registrasi Berhasil!")
-            .setMessage("Data wajah Anda ($embeddingsCount foto) telah dikirim.\n\nSilakan tunggu persetujuan admin untuk mulai menggunakan sistem absensi.")
-            .setPositiveButton("OK") { dialog, _ ->
-                dialog.dismiss()
-                finish()
-            }
-            .setCancelable(false)
-            .show()
+        showSuccessDialog(
+            title = "Registrasi Berhasil!",
+            message = "Data wajah Anda ($embeddingsCount foto) telah dikirim",
+            subMessage = "Silakan tunggu persetujuan admin untuk mulai menggunakan sistem absensi"
+        )
     }
 
     private fun showNameInputDialog() {
@@ -1780,12 +2006,8 @@ class CameraActivity : AppCompatActivity() {
         // Button click handlers
         btnAction.setOnClickListener {
             dialog.dismiss()
-            // Reset state for retry
-            stableFrameCount = 0
-            lastFaceBounds = null
-            isFaceDetected = false
-            isCountingDown = false
-            isProcessing = false
+            // Sync threshold from backend before retry
+            syncThresholdAndRetry()
         }
 
         btnClose.setOnClickListener {
@@ -1912,6 +2134,127 @@ class CameraActivity : AppCompatActivity() {
             .setDuration(300)
             .setInterpolator(android.view.animation.OvershootInterpolator())
             .start()
+    }
+
+    /**
+     * Sync threshold from backend and retry face recognition
+     * Called when user clicks "Coba Lagi" button in error dialog
+     */
+    private fun syncThresholdAndRetry() {
+        binding.progressBar.visibility = android.view.View.VISIBLE
+        updateStatus("Menyinkronkan pengaturan...")
+
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                // Sync embeddings from server (includes threshold settings)
+                val syncResult = withContext(Dispatchers.IO) {
+                    attendanceRepository.syncEmbeddings()
+                }
+
+                syncResult.fold(
+                    onSuccess = { response ->
+                        // Save updated threshold from server
+                        response.settings?.let { settings ->
+                            withContext(Dispatchers.IO) {
+                                embeddingStorage.saveFaceThreshold(settings.faceDistanceThreshold)
+                            }
+                            Log.d(TAG, "✓ Synced threshold from server: ${settings.faceDistanceThreshold}")
+                        }
+
+                        // Also update embeddings if changed
+                        withContext(Dispatchers.IO) {
+                            val userEmbeddings = response.embeddings.map { dto ->
+                                val multiEmbeddings: List<FloatArray> = dto.embeddings?.map { embList ->
+                                    embList.toFloatArray()
+                                } ?: listOf()
+
+                                EmbeddingStorage.UserEmbedding(
+                                    odId = dto.odId,
+                                    name = dto.name,
+                                    embedding = dto.embedding.toFloatArray(),
+                                    embeddings = multiEmbeddings,
+                                    faceImageUrl = dto.faceImageUrl,
+                                    updatedAt = dto.updatedAt
+                                )
+                            }
+                            embeddingStorage.saveEmbeddings(userEmbeddings)
+                            embeddingStorage.setLastSyncTimestamp(response.syncTimestamp)
+                        }
+
+                        binding.progressBar.visibility = android.view.View.GONE
+
+                        // Reset state for retry
+                        stableFrameCount = 0
+                        lastFaceBounds = null
+                        isFaceDetected = false
+                        isCountingDown = false
+                        isProcessing = false
+                        updateStatus("Posisikan wajah dalam bingkai")
+
+                        Toast.makeText(
+                            this@CameraActivity,
+                            "Pengaturan diperbarui. Silakan coba lagi.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    onFailure = { error ->
+                        Log.e(TAG, "✗ Failed to sync threshold: ${error.message}")
+                        binding.progressBar.visibility = android.view.View.GONE
+
+                        // Still allow retry with cached threshold
+                        stableFrameCount = 0
+                        lastFaceBounds = null
+                        isFaceDetected = false
+                        isCountingDown = false
+                        isProcessing = false
+                        updateStatus("Posisikan wajah dalam bingkai")
+
+                        Toast.makeText(
+                            this@CameraActivity,
+                            "Gagal sync pengaturan. Menggunakan pengaturan tersimpan.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error syncing threshold", e)
+                binding.progressBar.visibility = android.view.View.GONE
+
+                // Still allow retry with cached threshold
+                stableFrameCount = 0
+                lastFaceBounds = null
+                isFaceDetected = false
+                isCountingDown = false
+                isProcessing = false
+            }
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Stop camera processing when activity is paused
+        isProcessing = true  // Block further processing
+        isShowingConfirmationDialog = false  // Reset dialog state
+
+        // Unbind camera to release resources for other activities
+        cameraProvider?.unbindAll()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Reset state and restart camera when activity is resumed
+        isProcessing = false
+        isShowingConfirmationDialog = false
+        isProfileConfirmed = false
+        stableFrameCount = 0
+        lastFaceBounds = null
+        isFaceDetected = false
+        isCountingDown = false
+
+        // Restart camera if it was unbound
+        if (cameraProvider != null) {
+            startCamera()
+        }
     }
 
     override fun onDestroy() {

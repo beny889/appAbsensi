@@ -4,11 +4,14 @@ import android.util.Log
 import com.absensi.data.remote.api.RetrofitClient
 import com.absensi.data.remote.dto.AttendanceResponse
 import com.absensi.data.remote.dto.GroupedAttendanceResponse
+import com.absensi.data.remote.dto.LogAttemptRequest
+import com.absensi.data.remote.dto.LogAttemptResponse
 import com.absensi.data.remote.dto.SyncEmbeddingsResponse
 import com.absensi.data.remote.dto.VerifyAttendanceRequest
 import com.absensi.data.remote.dto.VerifyDeviceRequest
 import com.absensi.data.remote.dto.VerifyFaceOnlyRequest
 import com.absensi.data.remote.dto.VerifyFaceOnlyResponse
+import com.absensi.data.remote.dto.UserScheduleResponse
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -443,6 +446,102 @@ class AttendanceRepository {
         } catch (e: Exception) {
             Log.e(TAG, "Exception creating device attendance", e)
             Result.failure(Exception("Unexpected error: ${e.message}"))
+        }
+    }
+
+    /**
+     * Log face match attempt to backend for debugging
+     * @param attemptType "CHECK_IN" or "CHECK_OUT"
+     * @param success Whether a match was found
+     * @param matchedUserId ID of matched user (if success)
+     * @param matchedUserName Name of matched user (if success)
+     * @param threshold Threshold used for matching
+     * @param bestDistance Best distance found
+     * @param bestSimilarity Best similarity percentage
+     * @param totalUsersCompared Number of users compared
+     * @param allMatchesJson JSON string of all user comparisons
+     */
+    suspend fun logFaceMatchAttempt(
+        attemptType: String,
+        success: Boolean,
+        matchedUserId: String?,
+        matchedUserName: String?,
+        threshold: Float,
+        bestDistance: Float?,
+        bestSimilarity: Float?,
+        totalUsersCompared: Int,
+        allMatchesJson: String
+    ): Result<LogAttemptResponse> {
+        return try {
+            Log.d(TAG, "Logging face match attempt: type=$attemptType, success=$success")
+
+            val request = LogAttemptRequest(
+                attemptType = attemptType,
+                success = success,
+                matchedUserId = matchedUserId,
+                matchedUserName = matchedUserName,
+                threshold = threshold,
+                bestDistance = bestDistance,
+                bestSimilarity = bestSimilarity,
+                totalUsersCompared = totalUsersCompared,
+                allMatches = allMatchesJson
+            )
+
+            val response = apiService.logAttempt(request)
+
+            if (response.isSuccessful && response.body() != null) {
+                Log.d(TAG, "✓ Attempt logged successfully: ${response.body()!!.id}")
+                Result.success(response.body()!!)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Log.e(TAG, "✗ Failed to log attempt: $errorBody")
+                Result.failure(Exception("Failed to log attempt: $errorBody"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception logging attempt", e)
+            // Don't fail the main flow, just log the error
+            Result.failure(Exception("Failed to log attempt: ${e.message}"))
+        }
+    }
+
+    /**
+     * Get user's work schedule by userId
+     * Used for early checkout confirmation flow (no face verification needed)
+     * @param userId User's ID
+     * @return Result with UserScheduleResponse
+     */
+    suspend fun getUserSchedule(userId: String): Result<UserScheduleResponse> {
+        return try {
+            Log.d(TAG, "Getting schedule for user: $userId")
+
+            val response = apiService.getUserSchedule(userId)
+
+            Log.d(TAG, "Response code: ${response.code()}")
+
+            if (response.isSuccessful && response.body() != null) {
+                val data = response.body()!!
+                Log.d(TAG, "✓ Schedule retrieved: hasSchedule=${data.hasSchedule}, checkOutTime=${data.checkOutTime}")
+                Result.success(data)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                val errorMsg = when (response.code()) {
+                    404 -> "User tidak ditemukan"
+                    else -> "Error ${response.code()}: ${errorBody ?: response.message()}"
+                }
+                Log.e(TAG, "✗ Error getting schedule: $errorMsg")
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: ConnectException) {
+            val msg = "Tidak dapat terhubung ke server."
+            Log.e(TAG, msg, e)
+            Result.failure(Exception(msg))
+        } catch (e: SocketTimeoutException) {
+            val msg = "Request timeout."
+            Log.e(TAG, msg, e)
+            Result.failure(Exception(msg))
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception getting schedule", e)
+            Result.failure(Exception("Error: ${e.message}"))
         }
     }
 }

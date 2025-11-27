@@ -53,6 +53,7 @@ model User {
   attendances      Attendance[]
   faceRegistration FaceRegistration?
   department       Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  holidays         HolidayUser[]
 
   @@map("users")
   @@index([departmentId])
@@ -163,4 +164,67 @@ model WorkSchedule {
   @@map("work_schedules")
   @@unique([departmentId]) // One schedule per department
   @@index([departmentId])
+}
+
+model Holiday {
+  id          String   @id @default(cuid())
+  date        DateTime @db.Date
+  name        String
+  description String?
+  isGlobal    Boolean  @default(true)  // true = untuk semua karyawan, false = untuk karyawan tertentu
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users       HolidayUser[]
+
+  @@map("holidays")
+  @@index([date])
+}
+
+// Junction table for Holiday-User many-to-many relation
+model HolidayUser {
+  id        String   @id @default(cuid())
+  holidayId String
+  userId    String
+
+  // Relations
+  holiday   Holiday  @relation(fields: [holidayId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("holiday_users")
+  @@unique([holidayId, userId])
+  @@index([holidayId])
+  @@index([userId])
+}
+
+// Face Match Attempt Log - records every face matching attempt (success or failure)
+model FaceMatchAttempt {
+  id                 String   @id @default(cuid())
+
+  // Attempt info
+  attemptType        String   // "CHECK_IN" | "CHECK_OUT"
+  success            Boolean  // true if match found
+
+  // Matched user (if success)
+  matchedUserId      String?
+  matchedUserName    String?
+
+  // Matching details
+  threshold          Float    // threshold used for matching
+  bestDistance       Float?   // best distance found
+  bestSimilarity     Float?   // best similarity percentage
+  totalUsersCompared Int      // number of users compared
+
+  // Detail of all comparisons (JSON array)
+  allMatches         String   @db.Text
+
+  // Timestamps
+  createdAt          DateTime @default(now())
+
+  @@map("face_match_attempts")
+  @@index([createdAt])
+  @@index([success])
 }

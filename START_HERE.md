@@ -6,10 +6,10 @@
 
 ## 📋 Apa yang Anda Miliki
 
-✅ **Python ML Service** (Flask + face_recognition + dlib) - COMPLETE & READY ⚡ (NEW!)
 ✅ **Backend API** (NestJS + PostgreSQL) - COMPLETE & READY
 ✅ **Web Admin Panel** (React + TypeScript) - COMPLETE & READY
-✅ **Android App** (Kotlin) - STRUCTURE READY
+✅ **Android App** (Kotlin + MobileFaceNet) - COMPLETE & READY
+✅ **On-Device Face Recognition** (MobileFaceNet TFLite) - COMPLETE & READY
 ✅ **Complete Documentation** - ALL GUIDES READY
 
 ---
@@ -33,7 +33,6 @@ scripts\start-all.bat
 # Atau start satu-satu:
 scripts\start-backend.bat        # Backend (port 3001)
 scripts\start-web-admin.bat      # Web Admin (port 5173)
-scripts\start-face-recognition.bat  # ML Service (port 5000)
 
 # Stop all services:
 scripts\stop-all.bat
@@ -48,16 +47,6 @@ scripts\stop-all.bat
 ## 🚀 Quick Start (Manual - 10 Menit)
 
 ### Step 1: Install Prerequisites
-
-**Python 3.11+ (untuk ML Service)** ⚡ (NEW!):
-```bash
-# Windows: Download dari https://www.python.org/downloads/
-# Mac: brew install python@3.11
-# Linux: sudo apt install python3.11 python3.11-venv python3-pip
-
-# Verify
-python --version  # Should be 3.11+
-```
 
 **PostgreSQL**:
 
@@ -79,35 +68,10 @@ sudo apt install postgresql
 sudo systemctl start postgresql
 ```
 
-### Step 2: Start Python ML Service ⚡ (NEW!)
+### Step 2: Start Backend
 
 ```bash
 # Buka terminal 1
-cd face-recognition-service
-
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# Windows:
-venv\Scripts\activate
-# Mac/Linux:
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Start ML service
-python app.py
-
-# ✅ ML Service running di http://localhost:5000
-# KEEP THIS RUNNING! Don't close this terminal.
-```
-
-### Step 3: Start Backend
-
-```bash
-# Buka terminal 2 (baru)
 cd backend
 
 # Install dependencies
@@ -128,10 +92,10 @@ npm run start:dev
 # ✅ Backend running di http://localhost:3001/api
 ```
 
-### Step 4: Start Web Admin
+### Step 3: Start Web Admin
 
 ```bash
-# Buka terminal 3 (baru)
+# Buka terminal 2 (baru)
 cd web-admin
 
 # Install dependencies
@@ -143,10 +107,10 @@ npm run dev
 # ✅ Web Admin running di http://localhost:5173
 ```
 
-### Step 5: Create Admin Account
+### Step 4: Create Admin Account
 
 ```bash
-# Terminal 4 (atau gunakan Postman)
+# Terminal 3 (atau gunakan Postman)
 curl -X POST http://localhost:3001/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
@@ -157,7 +121,7 @@ curl -X POST http://localhost:3001/api/auth/register \
   }'
 ```
 
-### Step 6: Login
+### Step 5: Login
 
 1. Buka browser: http://localhost:5173
 2. Login dengan:
@@ -234,8 +198,8 @@ curl -X POST http://localhost:3001/api/auth/register \
 1. Mulai dari `android/ANDROID_GUIDE.md`
 2. Setup Android Studio
 3. Understand MVVM architecture
-4. Implement face detection
-5. Implement GPS tracking
+4. Understand on-device face recognition (MobileFaceNet)
+5. Test attendance flow
 
 ### Sebagai **Full Stack Developer**
 1. Pahami keseluruhan arsitektur (README.md)
@@ -292,13 +256,6 @@ ALTER USER postgres PASSWORD 'newpassword';
 ## ✅ Quick Checks
 
 Sebelum mulai development, pastikan:
-
-**Python ML Service** ⚡ (NEW!):
-- [ ] Python 3.11+ installed
-- [ ] Virtual environment created
-- [ ] pip install berhasil
-- [ ] Service running di port 5000
-- [ ] Health check success: curl http://localhost:5000/health
 
 **Backend**:
 - [ ] Node.js 18+ installed
@@ -384,18 +341,10 @@ Sistem Anda sudah siap! Pilih salah satu path di atas dan mulai!
 scripts\start-all.bat            # Start all services
 scripts\start-backend.bat        # Start Backend only (port 3001)
 scripts\start-web-admin.bat      # Start Web Admin only (port 5173)
-scripts\start-face-recognition.bat # Start ML Service only (port 5000)
 scripts\stop-all.bat             # Stop all services
 scripts\launch-scrcpy.bat        # Launch Android screen mirroring
 
 # === MANUAL COMMANDS ===
-
-# Python ML Service
-cd face-recognition-service
-python -m venv venv               # Create virtual environment
-venv\Scripts\activate             # Activate (Windows)
-pip install -r requirements.txt   # Install dependencies
-python app.py                     # Start ML service
 
 # Backend
 cd backend
@@ -411,7 +360,6 @@ npm run dev                   # Start development server
 npm run build                 # Build for production
 
 # Health Checks
-curl http://localhost:5000/health  # ML Service
 curl http://localhost:3001/api     # Backend
 ```
 
@@ -423,9 +371,9 @@ Selamat memulai journey development sistem absensi Anda!
 
 ---
 
-**Last Updated**: November 25, 2025
+**Last Updated**: November 26, 2025
 **Status**: ✅ Ready to Use
-**Version**: 1.5.0 (Late/Early Status Tracking)
+**Version**: 2.1.0 (Face Recognition Flow Improvements + Early Checkout Fix)
 
 ---
 

@@ -32,9 +32,14 @@ android/app/src/main/
 │   │   └── FaceRecognitionHelper.kt # MobileFaceNet wrapper
 │   ├── data/local/
 │   │   └── EmbeddingStorage.kt      # Local embedding cache
-│   ├── presentation/camera/
-│   │   ├── CameraActivity.kt        # Main camera activity
-│   │   └── FaceFrameProgressView.kt # Custom corner frame view
+│   ├── presentation/
+│   │   ├── main/
+│   │   │   ├── HomeFragment.kt      # Home screen with attendance list
+│   │   │   ├── HomeViewModel.kt     # ViewModel for home
+│   │   │   └── AttendanceAdapter.kt # RecyclerView adapter
+│   │   └── camera/
+│   │       ├── CameraActivity.kt        # Main camera activity
+│   │       └── FaceFrameProgressView.kt # Custom corner frame view
 │   └── data/repository/
 │       ├── AttendanceRepository.kt
 │       └── FaceRegistrationRepository.kt
@@ -44,13 +49,38 @@ android/app/src/main/
     │   ├── ic_arrow_right.xml
     │   ├── ic_arrow_up.xml
     │   ├── ic_arrow_down.xml
-    │   └── ic_face_center.xml
+    │   ├── ic_face_center.xml
+    │   └── bg_counter_badge.xml     # Badge for attendance counter
     └── layout/
+        ├── fragment_home.xml        # Home screen layout
         ├── activity_camera.xml
         ├── dialog_early_checkout.xml
         ├── dialog_identity_confirmation.xml
         └── dialog_result.xml
 ```
+
+## Home Screen UI
+
+### Layout Components
+| Component | Description |
+|-----------|-------------|
+| Header Card | Menampilkan waktu real-time (HH:MM:SS) dan tanggal |
+| Action Buttons | Tombol MASUK (hijau) dan PULANG (merah) |
+| Attendance Counter | Badge biru di samping judul riwayat |
+| RecyclerView | Daftar absensi hari ini |
+| Empty State | Tampilan jika belum ada absensi |
+
+### Attendance Counter Badge
+Counter badge menampilkan jumlah karyawan yang sudah absen hari ini:
+- Warna: Biru (#1976D2)
+- Bentuk: Pill dengan rounded corners (12dp)
+- Visibility: Hanya muncul jika count > 0
+- Update: Otomatis saat data di-refresh
+
+### Pull to Refresh
+- SwipeRefreshLayout untuk refresh data
+- Indicator colors: blue, green, orange, red
+- Reload attendance list saat user swipe down
 
 ## Multi-Pose Registration (5 Foto)
 
@@ -130,12 +160,28 @@ const val TRANSITION_DELAY_MS = 1500L // Delay setelah capture
 2. CameraActivity opens (MODE_CHECK_OUT)
 3. Same face capture flow
 4. On-device matching → Identity found
-5. Call verify-only API (check schedule)
+5. Call getUserSchedule API (tidak perlu face recognition lagi)
 6. If early checkout:
    a. Show early checkout confirmation dialog
    b. Display: current time, scheduled time, minutes early
    c. User confirm or cancel
 7. Submit attendance dengan isEarlyCheckout flag
+8. Log attempt ke backend (success/fail)
+```
+
+### Camera Lifecycle Management
+```
+onPause():
+- isProcessing = true
+- cameraProvider?.unbindAll()  // Release camera
+
+onResume():
+- Reset all flags (isProcessing, isProfileConfirmed, etc)
+- Restart camera if provider exists
+
+Impact:
+- No crash when switching between Masuk ↔ Pulang
+- Proper camera resource release
 ```
 
 ## Embedding Sync
@@ -281,4 +327,4 @@ dependencies {
 
 ---
 
-**Last Updated**: November 26, 2025
+**Last Updated**: November 27, 2025

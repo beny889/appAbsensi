@@ -6,8 +6,9 @@
 - **Model**: MobileFaceNet TFLite (~5MB)
 - **Embedding**: 192-dimensional face vectors
 - **Matching**: On-device Euclidean distance
-- **Threshold**: 0.7 (configurable)
+- **Threshold**: Dynamic dari backend (default: 0.35)
 - **Offline Support**: Matching tanpa internet setelah sync
+- **Dynamic Sync**: Threshold sync ulang saat klik "Coba Lagi"
 
 ### Multi-Pose Registration (5 Foto)
 Registrasi wajah menggunakan 5 foto dari sudut berbeda:
@@ -56,12 +57,25 @@ Response:
       "name": "User Name",
       "embedding": [192 floats],     // First embedding (legacy)
       "embeddings": [[192], [192], ...], // All 5 embeddings
-      "embeddingsCount": 5
+      "embeddingsCount": 5,
+      "faceImageUrl": "data:image/jpeg;base64,..."
     }
   ],
-  "supportsMultipleEmbeddings": true
+  "syncTimestamp": 1764174551290,
+  "supportsMultipleEmbeddings": true,
+  "settings": {
+    "faceDistanceThreshold": 0.35,
+    "updatedAt": 1764174551290
+  }
 }
 ```
+
+### Dynamic Threshold Sync
+Threshold face matching di-sync dari backend:
+1. **Initial Sync**: Saat pertama kali buka CameraActivity
+2. **Retry Sync**: Saat klik "Coba Lagi" di dialog error
+3. **Storage**: Disimpan di SharedPreferences untuk akses cepat
+4. **Fallback**: Jika sync gagal, gunakan threshold tersimpan sebelumnya
 
 ---
 
@@ -73,16 +87,32 @@ Response:
 3. Corner frame indikator warna berubah
 4. Wajah stabil (hijau) → Auto-capture setelah 3 detik
 5. On-device matching dengan embeddings tersimpan
-6. Match ditemukan → Submit ke backend
-7. Backend cek jadwal → Deteksi late
-8. Tampilkan hasil sukses
+6. Match ditemukan → Dialog konfirmasi identitas
+7. User konfirmasi → `isProfileConfirmed = true` (face detection STOP TOTAL)
+8. Submit ke backend
+9. Backend cek jadwal → Deteksi late
+10. Tampilkan hasil sukses
+
+**Konfirmasi Identitas**:
+- Face detection berhenti TOTAL setelah user konfirmasi ("Ya, ini saya")
+- `isProfileConfirmed = true` - permanent block sampai Activity finish
+- Menampilkan foto registrasi user yang di-match
+- User bisa batal untuk scan ulang (face detection aktif lagi)
+- Setelah konfirmasi, harus kembali ke Home untuk scan ulang
 
 ### Check-out (Pulang)
 1. User buka app → Klik "Pulang"
-2. Same flow dengan Check-in
-3. Backend cek jadwal → Deteksi early checkout
-4. Jika pulang cepat → Konfirmasi dialog di Android
-5. Tampilkan hasil sukses
+2. Kamera terbuka dengan corner frame
+3. On-device matching sama dengan Check-in
+4. Match ditemukan → **Cek jadwal DULU**
+5. **Jika pulang cepat** → Dialog early checkout langsung (dengan info user)
+   - Konfirmasi → `isProfileConfirmed = true` → Submit → Sukses
+   - Batal → `isProfileConfirmed = true` → Kembali ke kamera (tapi face detection STOP)
+6. **Jika tidak early** → Dialog konfirmasi identitas normal
+   - User konfirmasi → `isProfileConfirmed = true` → Submit → Sukses
+7. Tampilkan hasil sukses
+
+**Penting**: Setelah user konfirmasi profil (baik Masuk maupun Pulang), face detection berhenti total. User harus kembali ke Home dan buka kamera baru untuk scan ulang.
 
 ### Late/Early Detection
 - **Late Check-in**: `isLate=true`, `lateMinutes=X`
@@ -119,8 +149,56 @@ Response:
 
 ### Reports
 - **Daily Report**: Rekap harian per tanggal
-- **Monthly Report**: Rekap bulanan per karyawan
+- **Monthly Report**: Rekap bulanan per karyawan dengan preview
+- **Monthly Report Preview**: Preview data sebelum download PDF
 - **Dashboard**: Statistik real-time
+
+### Holiday Management
+- CRUD hari libur nasional dan cuti bersama
+- Filter berdasarkan tahun
+- Otomatis exclude dari working days di report
+- Monthly attendance grid menampilkan hari libur berbeda
+- Tanggal libur tidak dihitung sebagai absent
+- **Holiday-Based Marking**: Kode "L" hanya untuk tanggal dari tabel holidays (bukan otomatis weekend)
+- **Multi-Employee Holiday**: Support libur untuk semua karyawan atau karyawan tertentu
+  - `isGlobal = true`: Libur berlaku untuk semua karyawan
+  - `isGlobal = false`: Libur hanya untuk karyawan yang dipilih
+  - Junction table `HolidayUser` untuk relasi many-to-many
+
+### Settings / Configuration
+- **Face Similarity**: Konfigurasi threshold pencocokan wajah ditampilkan sebagai persentase
+  - Ditampilkan sebagai: "60% - Normal" (bukan distance 0.40)
+  - Nilai tinggi = lebih ketat (wajah harus sangat mirip)
+  - Nilai rendah = lebih longgar (toleransi lebih tinggi)
+  - Default: 60% (distance 0.4)
+  - Formula: `Similarity = (1 - Distance) * 100`
+  - Range slider: 0% - 90%
+- **Change Password**: Admin dapat mengubah password akun
+
+### Reports (Collapsible Menu)
+Menu "Laporan" dengan sub-menu collapse:
+- **Harian**: Rekap absensi per tanggal
+- **Bulanan**: Rekap bulanan dengan grid kehadiran
+  - Dynamic columns: Kolom tanggal hanya sampai hari ini (jika bulan berjalan)
+  - Export PDF dengan format yang sama
+- **Detail Karyawan**: Laporan detail per karyawan
+
+### Face Match Logs (Debugging)
+**Path**: `/face-match-logs`
+
+Log setiap percobaan face matching untuk debugging:
+- **Attempt Type**: CHECK_IN atau CHECK_OUT
+- **Status**: Berhasil (✓) atau Gagal (✗)
+- **Matched User**: Nama user yang di-match (jika sukses)
+- **Similarity**: Persentase kemiripan terbaik
+- **Threshold**: Nilai threshold yang digunakan
+- **Detail View**: Klik row untuk lihat semua perbandingan (ranking by similarity)
+
+**Use Cases**:
+- Debug kenapa user tidak dikenali
+- Lihat ranking similarity ke semua user
+- Bandingkan threshold yang berbeda
+- Audit setiap percobaan absensi
 
 ---
 
@@ -235,6 +313,63 @@ model WorkSchedule {
 }
 ```
 
+### Holiday
+```prisma
+model Holiday {
+  id          String        @id @default(cuid())
+  date        DateTime      @unique
+  name        String
+  description String?
+  isGlobal    Boolean       @default(true)  // true = semua karyawan
+  users       HolidayUser[]                 // Relasi ke karyawan tertentu
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+```
+
+### HolidayUser (Junction Table)
+```prisma
+model HolidayUser {
+  id        String   @id @default(cuid())
+  holidayId String
+  userId    String
+  holiday   Holiday  @relation(fields: [holidayId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([holidayId, userId])  // Prevent duplicate assignments
+}
+```
+
+### Settings
+```prisma
+model Settings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @db.Text
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+```
+
+### FaceMatchAttempt
+```prisma
+model FaceMatchAttempt {
+  id                String   @id @default(cuid())
+  attemptType       String   // CHECK_IN | CHECK_OUT
+  success           Boolean  // true if match found
+  matchedUserId     String?
+  matchedUserName   String?
+  threshold         Float    // threshold used
+  bestDistance      Float?   // best distance
+  bestSimilarity    Float?   // best similarity (%)
+  totalUsersCompared Int     // number of users compared
+  allMatches        String   @db.Text // JSON of all comparisons
+  createdAt         DateTime @default(now())
+}
+```
+
 ---
 
 ## API Endpoints
@@ -245,6 +380,8 @@ POST /api/face-registration/submit    # Submit face registration
 GET  /api/attendance/sync-embeddings  # Sync embeddings to Android
 POST /api/attendance/verify-device    # Device-verified attendance
 POST /api/attendance/verify-anonymous # Server-verified attendance
+GET  /api/attendance/schedule/:userId # Get user schedule (for early checkout)
+POST /api/attendance/log-attempt      # Log face match attempt
 ```
 
 ### Admin Only
@@ -256,6 +393,20 @@ GET  /api/employees
 GET  /api/departments
 GET  /api/work-schedules
 GET  /api/reports/*
+GET  /api/attendance/face-match-attempts  # Get all face match logs
+
+GET    /api/holidays
+POST   /api/holidays
+PUT    /api/holidays/:id
+DELETE /api/holidays/:id
+
+# Settings
+GET  /api/settings                      # Get all settings
+GET  /api/settings/similarity-threshold # Get face threshold
+PUT  /api/settings/similarity-threshold # Update face threshold
+
+# Auth
+POST /api/auth/change-password          # Change admin password
 ```
 
 ---
@@ -276,10 +427,16 @@ const val BASE_URL = "http://10.0.2.2:3001/api/"
 
 ### FaceRecognitionHelper.kt
 ```kotlin
-const val DISTANCE_THRESHOLD = 0.7f  // Match threshold
+const val DISTANCE_THRESHOLD = 0.7f  // Match threshold (Android local)
 const val EMBEDDING_SIZE = 192       // MobileFaceNet output
+```
+
+### Backend Dynamic Settings
+Settings disimpan di database dan dapat diubah via web admin:
+```
+FACE_SIMILARITY_THRESHOLD = 0.6  // Server-side face matching threshold
 ```
 
 ---
 
-**Last Updated**: November 26, 2025
+**Last Updated**: November 27, 2025

@@ -18,6 +18,8 @@ class EmbeddingStorage(context: Context) {
         private const val KEY_EMBEDDINGS = "embeddings"
         private const val KEY_LAST_SYNC = "last_sync_timestamp"
         private const val KEY_SYNC_VERSION = "sync_version"
+        private const val KEY_FACE_THRESHOLD = "face_distance_threshold"
+        private const val DEFAULT_FACE_THRESHOLD = 0.7f  // Default fallback threshold (higher = more lenient)
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -32,6 +34,7 @@ class EmbeddingStorage(context: Context) {
         val name: String,                     // User's name for display
         val embedding: FloatArray,            // Primary 192-dimensional face embedding (for backward compatibility)
         val embeddings: List<FloatArray> = listOf(),  // Multiple embeddings for better matching
+        val faceImageUrl: String? = null,     // Face image URL for confirmation dialog
         val updatedAt: Long                   // Timestamp when this embedding was last updated
     ) {
         override fun equals(other: Any?): Boolean {
@@ -65,6 +68,7 @@ class EmbeddingStorage(context: Context) {
                     "name" to user.name,
                     "embedding" to user.embedding.toList(),
                     "embeddings" to user.embeddings.map { it.toList() },  // Multiple embeddings
+                    "faceImageUrl" to user.faceImageUrl,  // Face image URL
                     "updatedAt" to user.updatedAt
                 )
             }
@@ -109,6 +113,7 @@ class EmbeddingStorage(context: Context) {
                     name = map["name"] as String,
                     embedding = primaryEmbedding,
                     embeddings = multiEmbeddings,
+                    faceImageUrl = map["faceImageUrl"] as? String,
                     updatedAt = (map["updatedAt"] as Double).toLong()
                 )
             }.also {
@@ -150,6 +155,13 @@ class EmbeddingStorage(context: Context) {
      */
     fun getUserNamesMap(): Map<String, String> {
         return loadEmbeddings().associate { it.odId to it.name }
+    }
+
+    /**
+     * Get user face image URL map (odId -> faceImageUrl).
+     */
+    fun getFaceImageUrlMap(): Map<String, String?> {
+        return loadEmbeddings().associate { it.odId to it.faceImageUrl }
     }
 
     /**
@@ -230,5 +242,31 @@ class EmbeddingStorage(context: Context) {
      */
     fun getEmbeddingsCount(): Int {
         return loadEmbeddings().size
+    }
+
+    /**
+     * Save face distance threshold from server settings.
+     * This threshold is used for on-device face matching.
+     */
+    fun saveFaceThreshold(threshold: Float) {
+        prefs.edit().putFloat(KEY_FACE_THRESHOLD, threshold).apply()
+        Log.d(TAG, "Saved face threshold: $threshold")
+    }
+
+    /**
+     * Get face distance threshold.
+     * Returns the synced threshold from server, or default if not set.
+     */
+    fun getFaceThreshold(): Float {
+        val threshold = prefs.getFloat(KEY_FACE_THRESHOLD, DEFAULT_FACE_THRESHOLD)
+        Log.d(TAG, "Loaded face threshold: $threshold")
+        return threshold
+    }
+
+    /**
+     * Check if threshold has been synced from server.
+     */
+    fun hasThreshold(): Boolean {
+        return prefs.contains(KEY_FACE_THRESHOLD)
     }
 }

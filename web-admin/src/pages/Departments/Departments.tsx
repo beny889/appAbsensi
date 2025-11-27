@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { departmentApi } from '@/api';
 import { Department, CreateDepartmentDto, UpdateDepartmentDto } from '@/types';
+import { usePageTitle } from '@/contexts/PageTitleContext';
 import toast from 'react-hot-toast';
 
 export default function Departments() {
@@ -41,6 +42,8 @@ export default function Departments() {
     description: '',
     isActive: true,
   });
+
+  usePageTitle('Manajemen Departemen', 'Kelola departemen untuk karyawan dan jadwal kerja');
 
   useEffect(() => {
     loadDepartments();
@@ -139,16 +142,7 @@ export default function Departments() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h4" gutterBottom fontWeight="bold">
-            <BusinessIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-            Manajemen Departemen
-          </Typography>
-          <Typography variant="body1" color="textSecondary">
-            Kelola departemen untuk karyawan dan jadwal kerja
-          </Typography>
-        </Box>
+      <Box display="flex" justifyContent="flex-end" mb={2}>
         <Button
           variant="contained"
           color="primary"

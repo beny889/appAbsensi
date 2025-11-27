@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -13,6 +13,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Collapse,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -23,9 +24,18 @@ import {
   FaceRetouchingNatural as FaceIcon,
   Schedule as ScheduleIcon,
   Business as BusinessIcon,
+  CalendarMonth as CalendarIcon,
+  Person as PersonIcon,
+  Settings as SettingsIcon,
   Logout as LogoutIcon,
+  ExpandLess,
+  ExpandMore,
+  Today as TodayIcon,
+  DateRange as DateRangeIcon,
+  BugReport as BugReportIcon,
 } from '@mui/icons-material';
 import { authApi } from '@/api/auth';
+import { usePageTitle } from '@/contexts/PageTitleContext';
 
 const drawerWidth = 240;
 
@@ -36,22 +46,47 @@ const menuItems = [
   { text: 'Pendaftaran Wajah', icon: <FaceIcon />, path: '/face-registration/pending' },
   { text: 'Departemen', icon: <BusinessIcon />, path: '/departments' },
   { text: 'Jadwal Kerja', icon: <ScheduleIcon />, path: '/work-schedules' },
-  { text: 'Laporan Harian', icon: <AssessmentIcon />, path: '/reports/daily' },
-  { text: 'Laporan Bulanan', icon: <AssessmentIcon />, path: '/reports/monthly' },
+  { text: 'Hari Libur', icon: <CalendarIcon />, path: '/holidays' },
+];
+
+const reportSubItems = [
+  { text: 'Harian', icon: <TodayIcon />, path: '/reports/daily' },
+  { text: 'Bulanan', icon: <DateRangeIcon />, path: '/reports/monthly' },
+  { text: 'Detail Karyawan', icon: <PersonIcon />, path: '/reports/employee-detail' },
+];
+
+const bottomMenuItems = [
+  { text: 'Face Match Logs', icon: <BugReportIcon />, path: '/face-match-logs' },
+  { text: 'Pengaturan', icon: <SettingsIcon />, path: '/settings' },
 ];
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { title, description } = usePageTitle();
+
+  // Auto-expand reports menu if current path is a report page
+  useEffect(() => {
+    if (location.pathname.startsWith('/reports')) {
+      setReportsOpen(true);
+    }
+  }, [location.pathname]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
+  const handleReportsClick = () => {
+    setReportsOpen(!reportsOpen);
+  };
+
   const handleLogout = () => {
     authApi.logout();
   };
+
+  const isReportPath = location.pathname.startsWith('/reports');
 
   const drawer = (
     <div>
@@ -62,7 +97,63 @@ export default function Layout() {
       </Toolbar>
       <Divider />
       <List>
+        {/* Regular menu items */}
         {menuItems.map((item) => (
+          <ListItem key={item.text} disablePadding>
+            <ListItemButton
+              selected={location.pathname === item.path}
+              onClick={() => navigate(item.path)}
+            >
+              <ListItemIcon>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItemButton>
+          </ListItem>
+        ))}
+
+        {/* Reports menu with collapse */}
+        <ListItem disablePadding>
+          <ListItemButton
+            onClick={handleReportsClick}
+            selected={isReportPath}
+            sx={{
+              bgcolor: isReportPath ? 'action.selected' : 'transparent',
+            }}
+          >
+            <ListItemIcon>
+              <AssessmentIcon color={isReportPath ? 'primary' : 'inherit'} />
+            </ListItemIcon>
+            <ListItemText
+              primary="Laporan"
+              primaryTypographyProps={{
+                fontWeight: isReportPath ? 600 : 400,
+              }}
+            />
+            {reportsOpen ? <ExpandLess /> : <ExpandMore />}
+          </ListItemButton>
+        </ListItem>
+        <Collapse in={reportsOpen} timeout="auto" unmountOnExit>
+          <List component="div" disablePadding>
+            {reportSubItems.map((item) => (
+              <ListItemButton
+                key={item.text}
+                sx={{ pl: 4 }}
+                selected={location.pathname === item.path}
+                onClick={() => navigate(item.path)}
+              >
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.text}
+                  primaryTypographyProps={{ fontSize: '0.9rem' }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+        </Collapse>
+
+        {/* Bottom menu items (Settings) */}
+        {bottomMenuItems.map((item) => (
           <ListItem key={item.text} disablePadding>
             <ListItemButton
               selected={location.pathname === item.path}
@@ -89,7 +180,7 @@ export default function Layout() {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <AppBar
         position="fixed"
         sx={{
@@ -97,7 +188,7 @@ export default function Layout() {
           ml: { sm: `${drawerWidth}px` },
         }}
       >
-        <Toolbar>
+        <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }}>
           <IconButton
             color="inherit"
             aria-label="open drawer"
@@ -107,9 +198,16 @@ export default function Layout() {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            Sistem Absensi
-          </Typography>
+          <Box>
+            <Typography variant="h6" noWrap component="div" fontWeight="bold">
+              {title}
+            </Typography>
+            {description && (
+              <Typography variant="caption" noWrap component="div" sx={{ opacity: 0.85, mt: -0.5 }}>
+                {description}
+              </Typography>
+            )}
+          </Box>
         </Toolbar>
       </AppBar>
       <Box
@@ -147,6 +245,8 @@ export default function Layout() {
           flexGrow: 1,
           p: 3,
           width: { sm: `calc(100% - ${drawerWidth}px)` },
+          height: '100vh',
+          overflow: 'auto',
         }}
       >
         <Toolbar />

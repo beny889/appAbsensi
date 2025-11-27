@@ -15,6 +15,7 @@ import {
   SubmitFaceRegistrationDto,
   ApproveRegistrationDto,
   RejectRegistrationDto,
+  ReplaceFaceDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -71,6 +72,22 @@ export class FaceRegistrationController {
   ) {
     const adminId = req.user.id;
     return this.faceRegistrationService.approveRegistration(id, dto, adminId);
+  }
+
+  /**
+   * ADMIN ONLY: Replace existing user's face data
+   */
+  @Post(':id/replace-face')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async replaceFace(
+    @Param('id') id: string,
+    @Body() dto: ReplaceFaceDto,
+    @Request() req,
+  ) {
+    const adminId = req.user.id;
+    return this.faceRegistrationService.replaceUserFace(id, dto, adminId);
   }
 
   /**

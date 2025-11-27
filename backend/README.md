@@ -21,8 +21,11 @@ Backend API untuk sistem absensi dengan **on-device face recognition** (MobileFa
 - Embedding sync API untuk Android
 - Late/early detection berdasarkan jadwal
 - Department & work schedule management
+- Holiday management (hari libur nasional & per-karyawan)
 - Admin approval workflow
-- Attendance reports (daily/monthly)
+- Attendance reports (daily/monthly with preview)
+- Dynamic settings (face threshold, dll)
+- Admin password management
 
 ## Quick Start
 
@@ -40,12 +43,45 @@ npx prisma generate
 # Run migrations
 npx prisma migrate deploy
 
+# Seed dummy data (optional)
+npm run prisma:seed
+
 # Start development
 npm run start:dev    # Port 3001
 
 # Prisma Studio (Database GUI)
 npx prisma studio    # Port 5555
 ```
+
+## Seed Data
+
+Script untuk generate dummy attendance data:
+
+```bash
+npm run prisma:seed
+```
+
+Seed script (`prisma/seed.ts`) akan:
+1. Membuat 10 karyawan dummy dengan nama Indonesia
+2. Generate attendance records (masuk & pulang) untuk hari ini
+3. Random waktu masuk (07:00 - 08:30) dan pulang (16:30 - 17:30)
+4. Otomatis hitung status terlambat/pulang awal
+
+### Dummy Employees
+| Nama | Posisi |
+|------|--------|
+| Budi Santoso | Staff IT |
+| Siti Rahayu | HRD |
+| Ahmad Wijaya | Marketing |
+| Dewi Lestari | Finance |
+| Eko Prasetyo | Staff IT |
+| Fitri Handayani | Customer Service |
+| Gunawan Hidayat | Warehouse |
+| Heni Susanti | Accounting |
+| Irfan Maulana | Security |
+| Joko Widodo | Driver |
+
+**Note**: Jalankan seed ulang akan menghapus data dummy lama dan membuat yang baru.
 
 ## Environment Variables (.env)
 
@@ -63,6 +99,8 @@ POST /api/face-registration/submit    # Submit face registration
 GET  /api/attendance/sync-embeddings  # Sync embeddings ke Android
 POST /api/attendance/verify-device    # Device-verified attendance
 POST /api/attendance/verify-anonymous # Server-verified attendance
+GET  /api/attendance/schedule/:userId # Get user schedule (early checkout)
+POST /api/attendance/log-attempt      # Log face match attempt (debugging)
 ```
 
 ### Admin Only
@@ -86,11 +124,27 @@ POST   /api/work-schedules
 PUT    /api/work-schedules/:id
 
 GET    /api/attendance/today-all
+GET    /api/attendance/face-match-attempts  # Face match logs (debugging)
 DELETE /api/attendance/:id
 
 GET    /api/reports/daily
 GET    /api/reports/monthly
+GET    /api/reports/monthly-grid
 GET    /api/reports/dashboard
+
+GET    /api/holidays              # List all (includes users relation)
+GET    /api/holidays?year=YYYY   # Filter by year
+POST   /api/holidays              # Create (body: { date, name, description?, isGlobal, userIds? })
+PUT    /api/holidays/:id          # Update (body: { date?, name?, description?, isGlobal?, userIds? })
+DELETE /api/holidays/:id
+
+# Settings
+GET    /api/settings                      # Get all settings
+GET    /api/settings/similarity-threshold # Get face threshold
+PUT    /api/settings/similarity-threshold # Update face threshold (0.1-1.0)
+
+# Auth
+POST   /api/auth/change-password          # Change admin password
 ```
 
 ## Database Schema
@@ -150,6 +204,67 @@ model WorkSchedule {
 }
 ```
 
+### Holiday
+```prisma
+model Holiday {
+  id          String        @id @default(cuid())
+  date        DateTime      @unique
+  name        String
+  description String?
+  isGlobal    Boolean       @default(true)  // true = semua karyawan
+  users       HolidayUser[]                 // Relasi ke karyawan tertentu
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+```
+
+### HolidayUser (Junction Table)
+```prisma
+model HolidayUser {
+  id        String   @id @default(cuid())
+  holidayId String
+  userId    String
+  holiday   Holiday  @relation(...)
+  user      User     @relation(...)
+  createdAt DateTime @default(now())
+  @@unique([holidayId, userId])
+}
+```
+
+### Settings
+```prisma
+model Settings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @db.Text
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+```
+
+**Available Settings**:
+| Key | Default | Description |
+|-----|---------|-------------|
+| `FACE_SIMILARITY_THRESHOLD` | 0.6 | Threshold pencocokan wajah (0.1 - 1.0) |
+
+### FaceMatchAttempt
+```prisma
+model FaceMatchAttempt {
+  id                String   @id @default(cuid())
+  attemptType       String   // CHECK_IN | CHECK_OUT
+  success           Boolean
+  matchedUserId     String?
+  matchedUserName   String?
+  threshold         Float
+  bestDistance      Float?
+  bestSimilarity    Float?
+  totalUsersCompared Int
+  allMatches        String   @db.Text  // JSON ranking
+  createdAt         DateTime @default(now())
+}
+```
+
 ## Embedding Sync API
 
 Android sync embeddings untuk on-device matching:
@@ -166,12 +281,25 @@ Response:
       "name": "User Name",
       "embedding": [192 floats],     // First embedding (legacy)
       "embeddings": [[192], [192], ...], // All 5 embeddings
-      "embeddingsCount": 5
+      "embeddingsCount": 5,
+      "faceImageUrl": "data:image/jpeg;base64,..."
     }
   ],
-  "supportsMultipleEmbeddings": true
+  "syncTimestamp": 1764174551290,
+  "supportsMultipleEmbeddings": true,
+  "settings": {
+    "faceDistanceThreshold": 0.35,
+    "updatedAt": 1764174551290
+  }
 }
 ```
+
+### Settings dalam Sync Response
+Response `sync-embeddings` menyertakan settings untuk Android:
+- `faceDistanceThreshold`: Threshold untuk face matching (default: 0.35)
+- `updatedAt`: Timestamp terakhir settings diupdate
+
+Android akan menyimpan threshold ini ke SharedPreferences dan menggunakannya untuk on-device face matching.
 
 ## Face Registration Submit
 
@@ -217,7 +345,8 @@ app.use(urlencoded({ extended: true, limit: '50mb' }));
 ### Face Embedding Security
 - Disimpan sebagai vektor numerik (bukan foto)
 - Database field: TEXT dengan JSON array
-- Matching menggunakan cosine similarity (threshold 80%)
+- Matching menggunakan cosine similarity
+- Threshold dinamis dari Settings table (default 0.6 = 60%)
 
 ### JWT Authentication
 - Token-based untuk API access
@@ -253,9 +382,10 @@ npm run start:prod
 
 ### Face not recognized
 - Cek embeddings count di database
-- Verify similarity threshold (default 80%)
+- Verify similarity threshold di Settings (default 0.6)
+- Adjust threshold via web admin (Settings > Face Similarity)
 - Re-register dengan pencahayaan lebih baik
 
 ---
 
-**Last Updated**: November 26, 2025
+**Last Updated**: November 27, 2025

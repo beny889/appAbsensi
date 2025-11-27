@@ -1,6 +1,18 @@
 # Face Recognition Service
 
-Microservice Python untuk ekstraksi face embeddings menggunakan `face_recognition` library (dlib).
+> ⚠️ **DEPRECATED** - Service ini sudah tidak digunakan lagi!
+>
+> Face recognition sekarang dilakukan **on-device** menggunakan **MobileFaceNet TFLite** di Android.
+>
+> Lihat dokumentasi baru:
+> - [android/ANDROID_GUIDE.md](../android/ANDROID_GUIDE.md) - Implementasi on-device
+> - [android/README.md](../android/README.md) - Overview Android app
+>
+> Service ini hanya disimpan untuk referensi historis.
+
+---
+
+**[LEGACY]** Microservice Python untuk ekstraksi face embeddings menggunakan `face_recognition` library (dlib).
 
 ## Features
 

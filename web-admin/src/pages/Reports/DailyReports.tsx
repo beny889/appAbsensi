@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { reportsApi } from '@/api';
 import { DailyReport, Attendance } from '@/types';
+import { usePageTitle } from '@/contexts/PageTitleContext';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -32,6 +33,8 @@ export default function DailyReports() {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [report, setReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(false);
+
+  usePageTitle('Laporan Harian', 'Ringkasan kehadiran karyawan per hari');
 
   // Group attendances by user (1 row per user with masuk & pulang combined)
   const groupedAttendances = useMemo((): GroupedAttendance[] => {
@@ -83,13 +86,6 @@ export default function DailyReports() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom fontWeight="bold">
-        Laporan Harian
-      </Typography>
-      <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
-        Ringkasan kehadiran karyawan per hari
-      </Typography>
-
       <Paper sx={{ p: 3, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6}>

@@ -28,14 +28,23 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:padding="8dp">
+
+            <!-- Company Name -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="TB. Kota Kembang"
+                android:textColor="#1976D2"
+                android:textSize="28sp"
+                android:textStyle="bold" />
 
             <!-- Waktu sebagai elemen utama -->
             <TextView
                 android:id="@+id/tv_time"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="0dp"
                 android:text="08:00:00"
                 android:textColor="#212121"
                 android:textSize="72sp"
@@ -48,7 +57,7 @@
                 android:id="@+id/tv_date"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="2dp"
                 android:text="Senin, 01 Jan 2024"
                 android:textColor="#757575"
                 android:textSize="16sp"
@@ -79,7 +88,7 @@
             android:gravity="center"
             app:cornerRadius="16dp"
             app:backgroundTint="#4CAF50"
-            app:icon="@android:drawable/ic_input_add"
+            app:icon="@drawable/ic_check_in"
             app:iconGravity="textTop"
             app:iconSize="28dp"
             app:iconPadding="8dp" />
@@ -97,25 +106,51 @@
             android:gravity="center"
             app:cornerRadius="16dp"
             app:backgroundTint="#F44336"
-            app:icon="@android:drawable/ic_menu_close_clear_cancel"
+            app:icon="@drawable/ic_check_out"
             app:iconGravity="textTop"
             app:iconSize="28dp"
             app:iconPadding="8dp" />
     </LinearLayout>
 
-    <!-- Today's Attendance Title -->
-    <TextView
-        android:id="@+id/tvTodayTitle"
-        android:layout_width="wrap_content"
+    <!-- Today's Attendance Title with Counter -->
+    <LinearLayout
+        android:id="@+id/layoutTodayTitle"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
-        android:text="Riwayat Absensi Hari Ini"
-        android:textColor="#212121"
-        android:textSize="18sp"
-        android:textStyle="bold"
+        android:layout_marginEnd="16dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/layoutActions" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layoutActions">
+
+        <TextView
+            android:id="@+id/tvTodayTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Riwayat Absensi Hari Ini"
+            android:textColor="#212121"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvAttendanceCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_counter_badge"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="4dp"
+            android:text="0"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+    </LinearLayout>
 
     <!-- Attendance RecyclerView -->
     <androidx.recyclerview.widget.RecyclerView
@@ -129,7 +164,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvTodayTitle"
+        app:layout_constraintTop_toBottomOf="@id/layoutTodayTitle"
         tools:listitem="@layout/item_attendance" />
 
     <!-- Empty State -->
@@ -143,7 +178,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvTodayTitle"
+        app:layout_constraintTop_toBottomOf="@id/layoutTodayTitle"
         tools:visibility="visible">
 
         <TextView

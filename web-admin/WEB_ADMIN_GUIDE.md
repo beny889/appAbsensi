@@ -48,9 +48,14 @@ web-admin/src/
 │   │   └── WorkSchedules.tsx
 │   ├── FaceRegistration/
 │   │   └── PendingRegistrations.tsx
-│   └── Reports/
-│       ├── DailyReports.tsx
-│       └── MonthlyReports.tsx
+│   ├── Reports/
+│   │   ├── DailyReports.tsx
+│   │   ├── MonthlyReports.tsx
+│   │   └── EmployeeDetailReport.tsx
+│   ├── FaceMatchLogs/
+│   │   └── FaceMatchLogs.tsx  # NEW: Face match logs
+│   └── Settings/
+│       └── Settings.tsx
 ├── types/
 │   └── index.ts           # TypeScript interfaces
 ├── App.tsx
@@ -136,10 +141,69 @@ web-admin/src/
 **Path**: `/reports/monthly`
 
 - Pilih bulan/tahun
-- Per-employee summary
-- Total hari kerja
-- Total hadir
-- Total terlambat
+- Preview mode: Lihat data sebelum download
+- Grid attendance day-by-day per employee
+- Per-employee summary (late, early, absent counts)
+- Total hari kerja (exclude holidays)
+- Export ke PDF
+
+### Holiday Management
+**Path**: `/holidays`
+
+- List hari libur dengan filter tahun
+- CRUD hari libur nasional/cuti bersama
+- Fields: Tanggal, Nama, Deskripsi, isGlobal, Karyawan
+- Otomatis terintegrasi dengan reports
+- **Multi-Employee Holiday**:
+  - Checkbox "Libur untuk semua karyawan" (isGlobal)
+  - Multi-select karyawan jika tidak global
+  - Label menampilkan "Semua Karyawan" atau nama karyawan
+
+### Face Match Logs
+**Path**: `/face-match-logs`
+
+Log setiap percobaan face matching untuk debugging:
+- **List View**: Waktu, Tipe (CHECK_IN/CHECK_OUT), Status (✓/✗), Match, Similarity
+- **Filter**: By success/fail status
+- **Detail Modal**: Klik row untuk lihat detail
+  - Threshold yang digunakan
+  - Total users dibandingkan
+  - Ranking similarity ke semua user (sorted by similarity)
+- **Use Cases**:
+  - Debug kenapa user tidak dikenali
+  - Lihat ranking similarity ke semua user
+  - Bandingkan threshold yang berbeda
+
+### Settings
+**Path**: `/settings`
+
+Halaman konfigurasi untuk pengaturan sistem:
+
+#### Face Similarity
+- **Display**: Percentage (0% - 90%)
+- **Default**: 60% (backend distance 0.4)
+- **Interface**: Slider dengan visual indicator
+- **Penjelasan**:
+  - Nilai tinggi = lebih ketat (wajah harus sangat mirip)
+  - Nilai rendah = lebih longgar (toleransi lebih tinggi)
+- **Konversi**: `Similarity = (1 - Distance) * 100`
+- Perubahan langsung berlaku tanpa restart
+
+**Conversion Table**:
+| Similarity | Distance | Label |
+|------------|----------|-------|
+| 90% | 0.10 | Sangat Ketat |
+| 70% | 0.30 | Ketat |
+| 50% | 0.50 | Normal |
+| 30% | 0.70 | Longgar |
+| 0%  | 1.00 | Sangat Longgar |
+
+#### Change Password
+- Form ganti password admin
+- **Validasi**:
+  - Current password harus benar
+  - New password minimal 6 karakter
+- Konfirmasi dengan password saat ini
 
 ## Configuration
 
@@ -231,11 +295,22 @@ interface Department {
   - Dashboard
   - Karyawan
   - Absensi
+  - Pendaftaran Wajah
   - Departemen
   - Jadwal Kerja
-  - Registrasi Wajah
-  - Laporan Harian
-  - Laporan Bulanan
+  - Hari Libur
+  - Laporan (collapsible)
+    - Harian
+    - Bulanan
+    - Detail Karyawan
+  - Face Match Logs (debugging)
+  - Pengaturan
+
+**Collapsible Reports Menu**:
+- Menu "Laporan" dengan icon Assessment
+- Klik untuk expand/collapse sub-menu
+- Auto-expand saat di halaman report
+- Visual indicator saat active
 
 ### Tables
 - MUI DataGrid atau Table
@@ -286,10 +361,27 @@ interface Department {
 - `GET /api/attendance/all`
 - `GET /api/attendance/today-all`
 - `DELETE /api/attendance/:id`
+- `GET /api/attendance/face-match-attempts` - Face match logs
 
 ### Reports
 - `GET /api/reports/daily?date=YYYY-MM-DD`
 - `GET /api/reports/monthly?year=YYYY&month=MM`
+- `GET /api/reports/monthly-grid?year=YYYY&month=MM`
+
+### Holidays
+- `GET /api/holidays` - List all (includes users relation)
+- `GET /api/holidays?year=YYYY` - Filter by year
+- `POST /api/holidays` - Body: `{ date, name, description?, isGlobal, userIds? }`
+- `PUT /api/holidays/:id` - Body: `{ date?, name?, description?, isGlobal?, userIds? }`
+- `DELETE /api/holidays/:id`
+
+### Settings
+- `GET /api/settings`
+- `GET /api/settings/similarity-threshold`
+- `PUT /api/settings/similarity-threshold`
+
+### Auth
+- `POST /api/auth/change-password`
 
 ## Development
 
@@ -321,10 +413,18 @@ npm run type-check
 - [x] Delete attendance records
 - [x] Daily reports with detail table
 - [x] Monthly reports per employee
+- [x] Monthly report preview + PDF export
+- [x] Dynamic date columns (current month)
+- [x] Holiday management (CRUD)
+- [x] Holiday multi-employee support (isGlobal + userIds)
 - [x] Terminology: Masuk/Pulang (not Check In/Out)
-- [ ] Export to Excel/PDF
+- [x] Collapsible reports menu
+- [x] Settings page (face threshold)
+- [x] Change admin password
+- [x] Face Match Logs (debugging)
+- [ ] Export to Excel
 - [ ] Dark mode
 
 ---
 
-**Last Updated**: November 26, 2025
+**Last Updated**: November 27, 2025
