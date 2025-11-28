@@ -165,6 +165,10 @@ src/
 - Admin-only access validation
 - Error handling
 - Auto redirect to dashboard on success
+- **New UI (v2.3.0)**:
+  - Blue gradient background
+  - Logo di tengah
+  - Modern card design
 
 ### 2. Dashboard (`/`)
 - 4 stat cards (Total Employees, Today Present, Today Absent, Attendance Rate)
@@ -234,7 +238,8 @@ src/
   - Perubahan langsung sync ke Android saat app call `/api/attendance/sync-embeddings`
 - **Change Admin Password**:
   - Validasi password lama
-  - Minimum 6 karakter
+  - Minimum 8 karakter (v2.3.0)
+  - Harus mengandung huruf besar, huruf kecil, dan angka
 - Real-time settings update (no restart needed)
 
 ## 🔧 Development
@@ -451,4 +456,4 @@ Private - Internal Use Only
 ---
 
 **Last Updated**: November 27, 2025
-**Version**: 2.2.0 (Production Ready - Debug Removed, Security Hardened)
+**Version**: 2.3.0 (Security Hardening, Login UI Redesign)

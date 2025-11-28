@@ -137,7 +137,12 @@
       "Bash(git reset:*)",
       "Bash(for f in pages/Attendance/Attendance.tsx pages/Dashboard/Dashboard.tsx pages/Departments/Departments.tsx pages/Employees/Employees.tsx pages/FaceRegistration/PendingRegistrations.tsx pages/Holidays/Holidays.tsx pages/Reports/DailyReports.tsx pages/Reports/EmployeeDetailReport.tsx pages/Reports/MonthlyReports.tsx pages/Settings/Settings.tsx pages/WorkSchedules/WorkSchedules.tsx)",
       "Bash(do sed -i '/console\\.\\(log\\|error\\)/d' \"$f\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(cmd.exe //c \"set JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr && cd /d C:\\All Bot\\absensiApp\\android && gradlew.bat assembleDebug 2>&1\")",
+      "Bash(cmd.exe:*)",
+      "WebFetch(domain:render.com)",
+      "Bash(node:*)",
+      "Bash(ping:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Container,
   Box,
   Typography,
   TextField,
@@ -44,17 +43,43 @@ export default function Login() {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        pt: 8,
+        background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 50%, #0d47a1 100%)',
+      }}
+    >
       <Box
         sx={{
-          marginTop: 8,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          width: '100%',
+          maxWidth: 400,
+          px: 2,
         }}
       >
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Typography component="h1" variant="h5" align="center" gutterBottom>
+        {/* Logo */}
+        <Box
+          component="img"
+          src="/logo.png"
+          alt="Logo"
+          sx={{
+            width: 120,
+            height: 120,
+            mb: 2,
+            borderRadius: '50%',
+            backgroundColor: 'white',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+          }}
+        />
+
+        <Paper elevation={6} sx={{ p: 4, width: '100%', borderRadius: 2 }}>
+          <Typography component="h1" variant="h5" align="center" gutterBottom fontWeight="bold">
             Absensi Admin Panel
           </Typography>
           <Typography variant="body2" align="center" color="textSecondary" sx={{ mb: 3 }}>
@@ -99,6 +124,6 @@ export default function Login() {
           </Box>
         </Paper>
       </Box>
-    </Container>
+    </Box>
   );
 }

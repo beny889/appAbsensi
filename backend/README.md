@@ -352,6 +352,25 @@ app.use(urlencoded({ extended: true, limit: '50mb' }));
 - Token-based untuk API access
 - Role-based access control (ADMIN/EMPLOYEE)
 - Protected routes dengan guards
+- **Strong Secret**: 64+ karakter (WAJIB diganti di production!)
+- **Short Expiration**: 24 jam untuk keamanan
+
+### Rate Limiting (v2.3.0)
+- **Package**: `@nestjs/throttler`
+- **Global Limits**: 3 req/sec, 20 req/min, 100 req/hour
+- **Login Endpoint**: Max 5 attempts per minute (stricter)
+- Proteksi terhadap brute force attack
+
+### Password Policy (v2.3.0)
+- Minimal 8 karakter
+- Harus mengandung huruf besar (A-Z)
+- Harus mengandung huruf kecil (a-z)
+- Harus mengandung angka (0-9)
+
+### Protected Register Endpoint (v2.3.0)
+- Endpoint `/auth/register` dilindungi dengan JWT
+- Hanya user dengan role ADMIN yang bisa register user baru
+- Menggunakan `ForbiddenException` untuk unauthorized access
 
 ## Development
 
@@ -398,4 +417,4 @@ npm run start:prod
 ---
 
 **Last Updated**: November 27, 2025
-**Version**: 2.2.0 (Production Ready - Debug Removed)
+**Version**: 2.3.0 (Security Hardening - Rate Limiting, JWT, Password Policy)

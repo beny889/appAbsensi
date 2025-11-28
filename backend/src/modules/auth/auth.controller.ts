@@ -1,6 +1,7 @@
-import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Patch, ForbiddenException } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, ChangePasswordDto } from './dto';
+import { LoginDto, RegisterDto, ChangePasswordDto, UpdateProfileDto } from './dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -9,14 +10,19 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @Public()
+  @UseGuards(JwtAuthGuard)
   @Post('register')
-  async register(@Body() dto: RegisterDto) {
+  async register(@Body() dto: RegisterDto, @CurrentUser() currentUser: any) {
+    // Only ADMIN can register new users
+    if (currentUser.role !== 'ADMIN') {
+      throw new ForbiddenException('Only admin can register new users');
+    }
     return this.authService.register(dto);
   }
 
   @Public()
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // Max 5 login attempts per minute
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
@@ -34,5 +40,14 @@ export class AuthController {
     @Body() dto: ChangePasswordDto,
   ) {
     return this.authService.changePassword(user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('profile')
+  async updateProfile(
+    @CurrentUser() user: any,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.authService.updateProfile(user.id, dto);
   }
 }

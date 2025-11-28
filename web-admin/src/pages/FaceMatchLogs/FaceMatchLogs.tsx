@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import { faceMatchApi } from '@/api';
 import { FaceMatchAttempt, UserMatchInfo } from '@/types';
+import { usePageTitle } from '@/contexts/PageTitleContext';
 
 const FaceMatchLogs: React.FC = () => {
   const [attempts, setAttempts] = useState<FaceMatchAttempt[]>([]);
@@ -42,6 +43,8 @@ const FaceMatchLogs: React.FC = () => {
   // Detail dialog
   const [selectedAttempt, setSelectedAttempt] = useState<FaceMatchAttempt | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  usePageTitle('Face Match Logs', 'Log percobaan face matching untuk debugging');
 
   const fetchAttempts = async () => {
     try {
@@ -105,13 +108,6 @@ const FaceMatchLogs: React.FC = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Face Match Logs
-      </Typography>
-      <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-        Log percobaan face matching untuk debugging. Setiap percobaan absen (berhasil/gagal) tercatat di sini.
-      </Typography>
-
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}

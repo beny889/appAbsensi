@@ -89,82 +89,89 @@ export default function Layout() {
   const isReportPath = location.pathname.startsWith('/reports');
 
   const drawer = (
-    <div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Fixed Header */}
       <Toolbar>
         <Typography variant="h6" noWrap component="div">
           Absensi Admin
         </Typography>
       </Toolbar>
       <Divider />
-      <List>
-        {/* Regular menu items */}
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              selected={location.pathname === item.path}
-              onClick={() => navigate(item.path)}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
 
-        {/* Reports menu with collapse */}
-        <ListItem disablePadding>
-          <ListItemButton
-            onClick={handleReportsClick}
-            selected={isReportPath}
-            sx={{
-              bgcolor: isReportPath ? 'action.selected' : 'transparent',
-            }}
-          >
-            <ListItemIcon>
-              <AssessmentIcon color={isReportPath ? 'primary' : 'inherit'} />
-            </ListItemIcon>
-            <ListItemText
-              primary="Laporan"
-              primaryTypographyProps={{
-                fontWeight: isReportPath ? 600 : 400,
-              }}
-            />
-            {reportsOpen ? <ExpandLess /> : <ExpandMore />}
-          </ListItemButton>
-        </ListItem>
-        <Collapse in={reportsOpen} timeout="auto" unmountOnExit>
-          <List component="div" disablePadding>
-            {reportSubItems.map((item) => (
+      {/* Scrollable Menu */}
+      <Box sx={{ flex: 1, overflow: 'auto' }}>
+        <List>
+          {/* Regular menu items */}
+          {menuItems.map((item) => (
+            <ListItem key={item.text} disablePadding>
               <ListItemButton
-                key={item.text}
-                sx={{ pl: 4 }}
                 selected={location.pathname === item.path}
                 onClick={() => navigate(item.path)}
               >
-                <ListItemIcon sx={{ minWidth: 36 }}>
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  primaryTypographyProps={{ fontSize: '0.9rem' }}
-                />
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.text} />
               </ListItemButton>
-            ))}
-          </List>
-        </Collapse>
+            </ListItem>
+          ))}
 
-        {/* Bottom menu items (Settings) */}
-        {bottomMenuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
+          {/* Reports menu with collapse */}
+          <ListItem disablePadding>
             <ListItemButton
-              selected={location.pathname === item.path}
-              onClick={() => navigate(item.path)}
+              onClick={handleReportsClick}
+              selected={isReportPath}
+              sx={{
+                bgcolor: isReportPath ? 'action.selected' : 'transparent',
+              }}
             >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
+              <ListItemIcon>
+                <AssessmentIcon color={isReportPath ? 'primary' : 'inherit'} />
+              </ListItemIcon>
+              <ListItemText
+                primary="Laporan"
+                primaryTypographyProps={{
+                  fontWeight: isReportPath ? 600 : 400,
+                }}
+              />
+              {reportsOpen ? <ExpandLess /> : <ExpandMore />}
             </ListItemButton>
           </ListItem>
-        ))}
-      </List>
+          <Collapse in={reportsOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              {reportSubItems.map((item) => (
+                <ListItemButton
+                  key={item.text}
+                  sx={{ pl: 4 }}
+                  selected={location.pathname === item.path}
+                  onClick={() => navigate(item.path)}
+                >
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.text}
+                    primaryTypographyProps={{ fontSize: '0.9rem' }}
+                  />
+                </ListItemButton>
+              ))}
+            </List>
+          </Collapse>
+
+          {/* Bottom menu items (Settings) */}
+          {bottomMenuItems.map((item) => (
+            <ListItem key={item.text} disablePadding>
+              <ListItemButton
+                selected={location.pathname === item.path}
+                onClick={() => navigate(item.path)}
+              >
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.text} />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+      </Box>
+
+      {/* Fixed Logout */}
       <Divider />
       <List>
         <ListItem disablePadding>
@@ -176,7 +183,7 @@ export default function Layout() {
           </ListItemButton>
         </ListItem>
       </List>
-    </div>
+    </Box>
   );
 
   return (

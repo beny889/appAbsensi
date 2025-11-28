@@ -1,5 +1,76 @@
 # 📝 Changelog - Sistem Absensi
 
+## [2.3.0] Security Hardening & Login UI (2025-11-27)
+
+### 🔐 Security Audit & Hardening
+
+#### ✅ Register Endpoint Protected
+**Endpoint register sekarang memerlukan autentikasi dan role ADMIN**
+
+- ✅ **JwtAuthGuard**: Endpoint `/auth/register` dilindungi dengan JWT
+- ✅ **Role Check**: Hanya user dengan role `ADMIN` yang bisa mendaftarkan user baru
+- ✅ **ForbiddenException**: Error handling yang tepat untuk unauthorized access
+- Location: `backend/src/modules/auth/auth.controller.ts`
+
+#### ✅ JWT Secret Diperkuat
+**Secret key diganti dengan random string yang kuat**
+
+- ✅ **Strong Secret**: 64+ karakter random string
+- ✅ **Documentation**: `.env.example` dibuat untuk panduan konfigurasi
+- Location: `backend/.env`, `backend/.env.example`
+
+#### ✅ JWT Expiration Dikurangi
+**Token expiration dikurangi untuk keamanan lebih baik**
+
+- ✅ **Before**: `7d` (7 hari)
+- ✅ **After**: `24h` (24 jam)
+- ✅ **Impact**: Token harus di-refresh lebih sering
+
+#### ✅ Rate Limiting Ditambahkan
+**Proteksi brute force attack dengan rate limiting**
+
+- ✅ **Package**: `@nestjs/throttler` diinstal
+- ✅ **Global Limits**: 3 req/sec, 20 req/min, 100 req/hour
+- ✅ **Login Endpoint**: Max 5 attempts per minute (stricter)
+- ✅ **ThrottlerGuard**: Enabled globally
+- Location: `backend/src/app.module.ts`, `backend/src/modules/auth/auth.controller.ts`
+
+#### ✅ Password Complexity
+**Persyaratan password lebih ketat**
+
+- ✅ **Minimum Length**: 8 karakter (sebelumnya 6)
+- ✅ **Requirements**: Huruf besar, huruf kecil, dan angka
+- ✅ **Regex Validation**: Backend dan frontend
+- ✅ **Helper Text**: Informasi requirement di form
+- Location: `backend/src/modules/auth/dto/change-password.dto.ts`, `web-admin/src/pages/Settings/Settings.tsx`
+
+---
+
+### 🎨 Login Page UI Redesign
+
+#### ✅ Blue Gradient Background
+**Background login page diubah dari putih ke biru gradient**
+
+- ✅ **Gradient**: `linear-gradient(135deg, #1976d2 → #1565c0 → #0d47a1)`
+- ✅ **Full Height**: `minHeight: 100vh`
+- ✅ **Modern Look**: Professional appearance
+
+#### ✅ Logo Added
+**Logo aplikasi ditambahkan di halaman login**
+
+- ✅ **Position**: Di tengah, di atas form login
+- ✅ **Size**: 120x120px
+- ✅ **Style**: Circular dengan white background dan shadow
+- ✅ **File**: `web-admin/public/logo.png`
+- Location: `web-admin/src/pages/Auth/Login.tsx`
+
+#### ✅ Layout Improvements
+- ✅ **Form Card**: Elevated paper dengan border radius
+- ✅ **Position**: Closer to top (`pt: 8`)
+- ✅ **Responsive**: Works on all screen sizes
+
+---
+
 ## [2.2.0] Production Ready Release (2025-11-27)
 
 ### 🎯 Production Ready

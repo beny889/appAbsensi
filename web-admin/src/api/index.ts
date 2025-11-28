@@ -373,6 +373,18 @@ export interface ChangePasswordDto {
   newPassword: string;
 }
 
+export interface UpdateProfileDto {
+  name?: string;
+  email?: string;
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 export const settingsApi = {
   getAll: async (): Promise<SettingItem[]> => {
     const response = await apiClient.get<SettingItem[]>('/settings');
@@ -394,6 +406,16 @@ export const settingsApi = {
 
   changePassword: async (data: ChangePasswordDto): Promise<{ message: string }> => {
     const response = await apiClient.post<{ message: string }>('/auth/change-password', data);
+    return response.data;
+  },
+
+  getProfile: async (): Promise<UserProfile> => {
+    const response = await apiClient.get<UserProfile>('/auth/me');
+    return response.data;
+  },
+
+  updateProfile: async (data: UpdateProfileDto): Promise<UserProfile> => {
+    const response = await apiClient.patch<UserProfile>('/auth/profile', data);
     return response.data;
   },
 };

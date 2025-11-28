@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma/prisma.service';
-import { LoginDto, RegisterDto, ChangePasswordDto } from './dto';
+import { LoginDto, RegisterDto, ChangePasswordDto, UpdateProfileDto } from './dto';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -155,5 +155,37 @@ export class AuthService {
     });
 
     return { message: 'Password berhasil diubah' };
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    // Check if email is being changed and if it's already taken
+    if (dto.email) {
+      const existingUser = await this.prisma.user.findFirst({
+        where: {
+          email: dto.email,
+          NOT: { id: userId },
+        },
+      });
+
+      if (existingUser) {
+        throw new ConflictException('Email sudah digunakan');
+      }
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(dto.name && { name: dto.name }),
+        ...(dto.email && { email: dto.email }),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+      },
+    });
+
+    return user;
   }
 }

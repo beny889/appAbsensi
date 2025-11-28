@@ -34,13 +34,13 @@ interface StatsCardProps {
 
 function StatsCard({ title, value, icon, color }: StatsCardProps) {
   return (
-    <Paper sx={{ p: 3, height: '100%' }}>
+    <Paper sx={{ p: 2, height: '100%' }}>
       <Box display="flex" alignItems="center" justifyContent="space-between" height="100%">
         <Box>
-          <Typography variant="body2" color="textSecondary" gutterBottom>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
             {title}
           </Typography>
-          <Typography variant="h4" fontWeight="bold">
+          <Typography variant="h5" fontWeight="bold">
             {value}
           </Typography>
         </Box>
@@ -48,7 +48,7 @@ function StatsCard({ title, value, icon, color }: StatsCardProps) {
           sx={{
             backgroundColor: color,
             color: 'white',
-            p: 2,
+            p: 1.5,
             borderRadius: 2,
             display: 'flex',
             alignItems: 'center',
@@ -119,7 +119,7 @@ export default function Dashboard() {
           <StatsCard
             title="Total Karyawan"
             value={stats?.totalEmployees || 0}
-            icon={<PeopleIcon sx={{ fontSize: 40 }} />}
+            icon={<PeopleIcon sx={{ fontSize: 32 }} />}
             color="#1976d2"
           />
         </Grid>
@@ -127,7 +127,7 @@ export default function Dashboard() {
           <StatsCard
             title="Hadir Hari Ini"
             value={stats?.todayPresent || 0}
-            icon={<CheckCircleIcon sx={{ fontSize: 40 }} />}
+            icon={<CheckCircleIcon sx={{ fontSize: 32 }} />}
             color="#2e7d32"
           />
         </Grid>
@@ -135,7 +135,7 @@ export default function Dashboard() {
           <StatsCard
             title="Tidak Hadir"
             value={stats?.todayAbsent || 0}
-            icon={<CancelIcon sx={{ fontSize: 40 }} />}
+            icon={<CancelIcon sx={{ fontSize: 32 }} />}
             color="#d32f2f"
           />
         </Grid>
@@ -143,7 +143,7 @@ export default function Dashboard() {
           <StatsCard
             title="Tingkat Kehadiran"
             value={`${stats?.attendanceRate.toFixed(1)}%`}
-            icon={<TrendingUpIcon sx={{ fontSize: 40 }} />}
+            icon={<TrendingUpIcon sx={{ fontSize: 32 }} />}
             color="#ed6c02"
           />
         </Grid>
@@ -343,19 +343,6 @@ export default function Dashboard() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Ringkasan Kehadiran Bulan Ini
-            </Typography>
-            <Typography variant="h3" color="primary" fontWeight="bold">
-              {stats?.monthlyTotalAttendances || 0}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Total absensi bulan ini
-            </Typography>
-          </Paper>
-        </Grid>
       </Grid>
     </Box>
   );

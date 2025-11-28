@@ -2,12 +2,10 @@ package com.absensi.presentation.camera
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.util.Log
-import android.view.animation.AnimationUtils
 import android.view.animation.AlphaAnimation
 import android.view.animation.Animation
 import android.view.animation.TranslateAnimation
@@ -102,7 +100,6 @@ class CameraActivity : AppCompatActivity() {
     // Face validation state
     private var stableFrameCount = 0
     private var lastFaceBounds: android.graphics.RectF? = null
-    private var countdownValue = 3
     private var isCountingDown = false
 
     // Status tracking to prevent flickering
@@ -122,7 +119,6 @@ class CameraActivity : AppCompatActivity() {
         private const val MIN_FACE_SIZE_RATIO = 0.40f      // Face must be 40% of frame
         private const val FACE_CENTER_TOLERANCE = 0.20f    // ±20% from center
         private const val STABILITY_FRAMES = 15             // 15 frames (~1.5s)
-        private const val COUNTDOWN_SECONDS = 3
         private const val FACE_BOUNDS_SIMILARITY_THRESHOLD = 0.05f  // 5% movement tolerance
     }
 
@@ -150,8 +146,6 @@ class CameraActivity : AppCompatActivity() {
 
         // For REGISTRATION mode, ask for name FIRST before starting camera
         if (activityMode == MODE_REGISTRATION) {
-            // Hide threshold badge for registration mode (not needed)
-            binding.tvThresholdBadge.visibility = android.view.View.GONE
             showNameInputDialog()  // Show name dialog immediately
         } else {
             // For attendance mode, initialize face recognition and sync embeddings
@@ -184,8 +178,6 @@ class CameraActivity : AppCompatActivity() {
 
                 syncResult.fold(
                     onSuccess = { response ->
-                        val supportsMulti = response.supportsMultipleEmbeddings ?: false
-
                         // Save embeddings to local storage (with multiple embeddings support)
                         withContext(Dispatchers.IO) {
                             val userEmbeddings = response.embeddings.map { dto ->
@@ -193,8 +185,6 @@ class CameraActivity : AppCompatActivity() {
                                 val multiEmbeddings: List<FloatArray> = dto.embeddings?.map { embList ->
                                     embList.toFloatArray()
                                 } ?: listOf()
-
-                                val embCount = dto.embeddingsCount ?: 1
 
                                 EmbeddingStorage.UserEmbedding(
                                     odId = dto.odId,
@@ -217,9 +207,6 @@ class CameraActivity : AppCompatActivity() {
                         isOnDeviceReady = true
                         binding.progressBar.visibility = android.view.View.GONE
 
-                        // Update threshold badge for debugging
-                        updateThresholdBadge()
-
                         // Start camera
                         if (checkPermissions()) {
                             startCamera()
@@ -234,9 +221,6 @@ class CameraActivity : AppCompatActivity() {
                         if (embeddingStorage.hasEmbeddings()) {
                             isOnDeviceReady = true
                             binding.progressBar.visibility = android.view.View.GONE
-
-                            // Update threshold badge for debugging
-                            updateThresholdBadge()
 
                             if (checkPermissions()) {
                                 startCamera()
@@ -273,28 +257,6 @@ class CameraActivity : AppCompatActivity() {
                 }
             }
             else -> if (isCheckIn) "Scan Wajah untuk Masuk" else "Scan Wajah untuk Pulang"
-        }
-    }
-
-    /**
-     * Update threshold badge for debugging purposes
-     * Shows current face distance threshold from settings
-     */
-    private fun updateThresholdBadge() {
-        CoroutineScope(Dispatchers.Main).launch {
-            val threshold = withContext(Dispatchers.IO) {
-                embeddingStorage.getFaceThreshold()
-            }
-            val thresholdPercent = (threshold * 100).toInt()
-            val label = when {
-                threshold >= 0.9f -> "Sangat Longgar"
-                threshold >= 0.7f -> "Longgar"
-                threshold >= 0.5f -> "Normal"
-                threshold >= 0.3f -> "Ketat"
-                else -> "Sangat Ketat"
-            }
-            binding.tvThresholdBadge.text = "T: $thresholdPercent% ($label)"
-            binding.tvThresholdBadge.visibility = android.view.View.VISIBLE
         }
     }
 

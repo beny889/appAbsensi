@@ -218,6 +218,25 @@ Log setiap percobaan face matching untuk debugging:
 - Token-based untuk API access
 - Role-based access control (ADMIN/EMPLOYEE)
 - Protected routes dengan guards
+- **Strong Secret**: 64+ karakter random string
+- **Short Expiration**: 24 jam (bukan 7 hari)
+
+### Rate Limiting (v2.3.0)
+- **Global**: 3 req/sec, 20 req/min, 100 req/hour
+- **Login**: Max 5 attempts per minute
+- **Package**: `@nestjs/throttler`
+- Proteksi terhadap brute force attack
+
+### Password Policy (v2.3.0)
+- Minimal 8 karakter
+- Harus mengandung huruf besar (A-Z)
+- Harus mengandung huruf kecil (a-z)
+- Harus mengandung angka (0-9)
+- Validasi di backend dan frontend
+
+### Protected Endpoints (v2.3.0)
+- Register endpoint memerlukan JWT + role ADMIN
+- Hanya admin yang bisa mendaftarkan user baru
 
 ---
 
@@ -456,4 +475,4 @@ FACE_SIMILARITY_THRESHOLD = 0.6  // Server-side face matching threshold
 ---
 
 **Last Updated**: November 27, 2025
-**Version**: 2.2.0 (Production Ready)
+**Version**: 2.3.0 (Security Hardening)

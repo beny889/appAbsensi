@@ -23,12 +23,19 @@ import {
   VisibilityOff,
   Save as SaveIcon,
   Face as FaceIcon,
+  Person as PersonIcon,
 } from '@mui/icons-material';
 import { settingsApi } from '@/api';
 import { usePageTitle } from '@/contexts/PageTitleContext';
 import toast from 'react-hot-toast';
 
 export default function Settings() {
+  // Profile State
+  const [profileName, setProfileName] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+
   // Similarity Threshold State
   const [threshold, setThreshold] = useState<number>(0.6);
   const [loadingThreshold, setLoadingThreshold] = useState(true);
@@ -46,8 +53,44 @@ export default function Settings() {
   usePageTitle('Pengaturan', 'Konfigurasi sistem dan keamanan akun');
 
   useEffect(() => {
+    loadProfile();
     loadThreshold();
   }, []);
+
+  const loadProfile = async () => {
+    try {
+      const profile = await settingsApi.getProfile();
+      setProfileName(profile.name);
+      setProfileEmail(profile.email);
+    } catch (error) {
+      toast.error('Gagal memuat profil');
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!profileEmail.trim()) {
+      toast.error('Email tidak boleh kosong');
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      const updated = await settingsApi.updateProfile({
+        name: profileName,
+        email: profileEmail,
+      });
+      setProfileName(updated.name);
+      setProfileEmail(updated.email);
+      toast.success('Profil berhasil disimpan');
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Gagal menyimpan profil';
+      toast.error(message);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const loadThreshold = async () => {
     try {
@@ -79,8 +122,14 @@ export default function Settings() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      toast.error('Password baru minimal 6 karakter');
+    if (newPassword.length < 8) {
+      toast.error('Password baru minimal 8 karakter');
+      return;
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+    if (!passwordRegex.test(newPassword)) {
+      toast.error('Password harus mengandung huruf besar, huruf kecil, dan angka');
       return;
     }
 
@@ -216,6 +265,54 @@ export default function Settings() {
           </Card>
         </Grid>
 
+        {/* Profile Settings */}
+        <Grid item xs={12} md={6}>
+          <Card elevation={2}>
+            <CardHeader
+              avatar={<PersonIcon sx={{ color: '#1976d2' }} />}
+              title={<Typography variant="h6">Profil Admin</Typography>}
+              subheader="Ubah nama dan email login"
+            />
+            <Divider />
+            <CardContent>
+              {loadingProfile ? (
+                <Box display="flex" justifyContent="center" py={4}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                  <TextField
+                    fullWidth
+                    label="Nama"
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Email (Username Login)"
+                    type="email"
+                    value={profileEmail}
+                    onChange={(e) => setProfileEmail(e.target.value)}
+                    helperText="Email ini digunakan untuk login"
+                  />
+
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                    <Button
+                      variant="contained"
+                      startIcon={savingProfile ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+                      onClick={handleSaveProfile}
+                      disabled={savingProfile}
+                    >
+                      Simpan
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
         {/* Change Password */}
         <Grid item xs={12} md={6}>
           <Card elevation={2}>
@@ -253,7 +350,7 @@ export default function Settings() {
                   type={showNewPassword ? 'text' : 'password'}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  helperText="Minimal 6 karakter"
+                  helperText="Minimal 8 karakter, huruf besar, huruf kecil, dan angka"
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">

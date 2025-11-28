@@ -48,6 +48,12 @@ Sistem absensi dengan **on-device face recognition** menggunakan MobileFaceNet y
 - **Clean UI** - Visual debug elements sudah dihapus
 - **New App Logo** - Logo fingerprint biru gradient dengan background putih
 
+### Security Features (v2.3.0)
+- **Rate Limiting** - Proteksi brute force: 5 login attempts/minute
+- **Protected Register** - Hanya ADMIN yang bisa register user baru
+- **Strong JWT** - Secret 64+ karakter, expiration 24 jam
+- **Password Policy** - Minimal 8 karakter, huruf besar/kecil, angka
+
 ## Quick Start
 
 ```bash
@@ -333,4 +339,4 @@ Private - Internal Use Only
 ---
 
 **Last Updated**: November 27, 2025
-**Version**: 2.2.0 (Production Ready - Debug Removed, New Logo)
+**Version**: 2.3.0 (Security Hardening, Login UI Redesign)
