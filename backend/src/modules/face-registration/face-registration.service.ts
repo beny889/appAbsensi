@@ -267,7 +267,7 @@ export class FaceRegistrationService {
           position: dto.position,
           department: dto.departmentId ? { connect: { id: dto.departmentId } } : undefined,
           phone: dto.phone,
-          // startDate: dto.startDate ? new Date(dto.startDate) : null, // TODO: Enable after prisma generate on production
+          startDate: dto.startDate ? new Date(dto.startDate) : null,
           faceEmbedding: registration.faceEmbedding,
           faceEmbeddings: registration.faceEmbeddings, // Copy multiple embeddings
           faceImageUrl: registration.faceImageUrl,

@@ -123,29 +123,39 @@ export class ReportsService {
   }
 
   async getMonthlyAttendanceGrid(year: number, month: number) {
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
-    const daysInMonth = new Date(year, month, 0).getDate();
+    try {
+      console.log('[DEBUG] getMonthlyAttendanceGrid called with:', { year, month });
 
-    // Calculate displayDays - dynamic column count based on current date
-    const today = new Date();
-    const isCurrentMonth = year === today.getFullYear() && month === (today.getMonth() + 1);
-    const isFutureMonth = year > today.getFullYear() || (year === today.getFullYear() && month > today.getMonth() + 1);
-    const displayDays = isFutureMonth ? 0 : (isCurrentMonth ? today.getDate() : daysInMonth);
+      const startOfMonth = new Date(year, month - 1, 1);
+      const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+      const daysInMonth = new Date(year, month, 0).getDate();
 
-    // Get all active employees with startDate
-    const employees = await this.prisma.user.findMany({
-      where: { role: 'EMPLOYEE', isActive: true },
-      select: {
-        id: true,
-        name: true,
-        startDate: true,
-        department: {
-          select: { name: true },
+      // Calculate displayDays - dynamic column count based on current date
+      const today = new Date();
+      const isCurrentMonth = year === today.getFullYear() && month === (today.getMonth() + 1);
+      const isFutureMonth = year > today.getFullYear() || (year === today.getFullYear() && month > today.getMonth() + 1);
+      const displayDays = isFutureMonth ? 0 : (isCurrentMonth ? today.getDate() : daysInMonth);
+
+      console.log('[DEBUG] Date calculations:', { startOfMonth, endOfMonth, daysInMonth, displayDays });
+
+      // Get all active employees with startDate
+      const employees = await this.prisma.user.findMany({
+        where: { role: 'EMPLOYEE', isActive: true },
+        select: {
+          id: true,
+          name: true,
+          startDate: true,
+          department: {
+            select: { name: true },
+          },
         },
-      },
-      orderBy: { name: 'asc' },
-    });
+        orderBy: { name: 'asc' },
+      });
+
+      console.log('[DEBUG] Found employees:', employees.length);
+      if (employees.length > 0) {
+        console.log('[DEBUG] First employee:', { id: employees[0].id, name: employees[0].name, startDate: employees[0].startDate });
+      }
 
     // Get holidays for each user in this month
     const userIds = employees.map(e => e.id);
@@ -321,6 +331,8 @@ export class ReportsService {
     // Calculate working days (days that are not holidays for anyone - approximation)
     const workingDays = daysInMonth;
 
+    console.log('[DEBUG] getMonthlyAttendanceGrid completed successfully');
+
     return {
       year,
       month,
@@ -329,6 +341,11 @@ export class ReportsService {
       workingDays,
       employees: employeeData,
     };
+    } catch (error) {
+      console.error('[ERROR] getMonthlyAttendanceGrid failed:', error);
+      console.error('[ERROR] Stack trace:', error.stack);
+      throw error;
+    }
   }
 
   async getUserMonthlyReport(userId: string, year: number, month: number) {
