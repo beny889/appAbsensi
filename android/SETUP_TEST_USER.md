@@ -2,6 +2,13 @@
 
 Panduan untuk testing aplikasi Android dengan user accounts.
 
+## 🌐 Production URLs
+
+| Environment | URL |
+|-------------|-----|
+| **Web Admin** | https://absen.bravenozora.com |
+| **Backend API** | https://absen.bravenozora.com/api/ |
+
 ## Arsitektur Autentikasi
 
 Sistem ini menggunakan **Passwordless Face Authentication**:
@@ -25,11 +32,13 @@ Sistem ini menggunakan **Passwordless Face Authentication**:
 
 ### 2. Approve di Web Admin (Sebagai Admin)
 
-1. Login ke http://localhost:5173 dengan:
+1. Login ke https://absen.bravenozora.com dengan:
    ```
-   Email: admin@absensi.com
+   Email: admin@admin.com
    Password: admin123
    ```
+   (atau akun admin yang sudah dibuat)
+
 2. Buka menu "Pendaftaran Wajah"
 3. Klik registrasi yang pending
 4. Klik "Approve"
@@ -91,19 +100,33 @@ Restart app atau tambahkan tombol manual sync di HomeFragment.
 - Restart app untuk trigger sync ulang
 
 ### Backend connection error
-- Pastikan backend running di port 3001
+- **Production**: Pastikan internet connection available
+- **Development**: Pastikan backend running di port 3001
 - Setup ADB reverse: `adb reverse tcp:3001 tcp:3001`
-- Cek BASE_URL di Constants.kt
+- Cek BASE_URL di Constants.kt & RetrofitClient.kt
 
 ## Admin Token (Untuk Testing API)
 
 Jika perlu test API manual dengan token:
 
+### Production
+```bash
+# Login sebagai admin
+curl -X POST https://absen.bravenozora.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@admin.com","password":"admin123"}'
+
+# Gunakan token dari response untuk API calls
+curl -X GET https://absen.bravenozora.com/api/attendance/all \
+  -H "Authorization: Bearer TOKEN_DARI_RESPONSE"
+```
+
+### Development (Local)
 ```bash
 # Login sebagai admin
 curl -X POST http://localhost:3001/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@absensi.com","password":"admin123"}'
+  -d '{"email":"admin@admin.com","password":"admin123"}'
 
 # Gunakan token dari response untuk API calls
 curl -X GET http://localhost:3001/api/attendance/all \
@@ -112,4 +135,5 @@ curl -X GET http://localhost:3001/api/attendance/all \
 
 ---
 
-**Last Updated**: November 26, 2025
+**Last Updated**: November 30, 2025
+**Version**: 2.4.0 (Production Deployment - Qword Hosting)

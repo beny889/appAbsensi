@@ -2,9 +2,21 @@
 
 Android application untuk sistem absensi dengan **On-Device Face Recognition** menggunakan MobileFaceNet.
 
-## ✅ Status: COMPLETE & READY
+## 🌐 Production Configuration
 
-Project ini sudah memiliki fitur face registration dan attendance yang lengkap dengan on-device face recognition.
+| Environment | URL |
+|-------------|-----|
+| **Backend API** | https://absen.bravenozora.com/api/ |
+| **Web Admin** | https://absen.bravenozora.com |
+
+```kotlin
+// RetrofitClient.kt & Constants.kt
+private const val BASE_URL = "https://absen.bravenozora.com/api/"
+```
+
+## ✅ Status: PRODUCTION READY
+
+Project ini sudah terhubung ke production server dan siap digunakan dengan fitur face registration dan attendance yang lengkap.
 
 ### 📦 Yang Sudah Diimplementasi
 
@@ -240,7 +252,16 @@ Run → Run 'app'
 
 ## 🔧 Network Setup
 
-### For Physical Device (USB) - Recommended
+### Production (Current)
+```kotlin
+// RetrofitClient.kt & Constants.kt
+const val BASE_URL = "https://absen.bravenozora.com/api/"
+```
+App sudah dikonfigurasi untuk production. Tidak perlu setup tambahan.
+
+### Development (Local Backend)
+
+#### For Physical Device (USB)
 ```bash
 # Connect device via USB
 adb devices
@@ -252,15 +273,20 @@ adb reverse tcp:3001 tcp:3001
 adb reverse --list
 ```
 
-### For Emulator
 ```kotlin
-// Change BASE_URL in Constants.kt to:
+// Change BASE_URL in Constants.kt & RetrofitClient.kt to:
+const val BASE_URL = "http://localhost:3001/api/"
+```
+
+#### For Emulator
+```kotlin
+// Change BASE_URL to:
 const val BASE_URL = "http://10.0.2.2:3001/api/"
 ```
 
-### For WiFi (Same Network)
+#### For WiFi (Same Network)
 ```kotlin
-// Change BASE_URL in Constants.kt to:
+// Change BASE_URL to:
 const val BASE_URL = "http://192.168.x.x:3001/api/"
 ```
 
@@ -270,17 +296,16 @@ const val BASE_URL = "http://192.168.x.x:3001/api/"
 
 ```kotlin
 object Constants {
-    const val BASE_URL = "http://localhost:3001/api/"
-
-    // Face Recognition
-    const val FACE_DISTANCE_THRESHOLD = 0.7f  // Lower = stricter
-    const val MIN_FACE_SIZE = 0.15f
-    const val REQUIRED_STABLE_FRAMES = 15
-
-    // Timeouts
+    // Network - Production URL
+    const val BASE_URL = "https://absen.bravenozora.com/api/"
     const val CONNECT_TIMEOUT = 30L
     const val READ_TIMEOUT = 30L
-    const val WRITE_TIMEOUT = 60L
+    const val WRITE_TIMEOUT = 30L
+
+    // Face Detection
+    const val FACE_SIMILARITY_THRESHOLD = 0.6f
+    const val MIN_FACE_SIZE = 0.15f
+    const val FACE_EMBEDDING_SIZE = 128
 }
 ```
 
@@ -326,6 +351,8 @@ class FaceRecognitionHelper(context: Context) {
 - **Clean UI**: Visual threshold badge dihapus dari camera
 - **New App Logo**: Fingerprint icon biru gradient dengan background putih
 - **Error Logging**: Hanya `Log.e()` untuk production error tracking
+- **Production API**: Terhubung ke https://absen.bravenozora.com/api/
+- **Timeout**: 60 detik untuk handle upload 5 foto face registration
 
 ---
 
@@ -333,5 +360,5 @@ Untuk detail lebih lengkap, lihat **ANDROID_GUIDE.md**.
 
 ---
 
-**Last Updated**: November 27, 2025
-**Version**: 2.2.0 (Production Ready - Debug Removed, New Logo)
+**Last Updated**: November 30, 2025
+**Version**: 2.4.0 (Production Deployment - Qword Hosting)

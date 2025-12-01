@@ -2,6 +2,13 @@
 
 Panduan lengkap untuk Android app sistem absensi dengan **on-device face recognition** menggunakan MobileFaceNet.
 
+## 🌐 Production Configuration
+
+| Environment | URL |
+|-------------|-----|
+| **Backend API** | https://absen.bravenozora.com/api/ |
+| **Web Admin** | https://absen.bravenozora.com |
+
 ## Tech Stack
 
 | Component | Technology |
@@ -220,8 +227,16 @@ suspend fun syncEmbeddings(): List<EmbeddingData> {
 ### Constants.kt
 ```kotlin
 object Constants {
-    const val BASE_URL = "http://10.0.2.2:3001/api/"  // Emulator
-    // const val BASE_URL = "http://192.168.x.x:3001/api/"  // Real device
+    // Network - Production URL
+    const val BASE_URL = "https://absen.bravenozora.com/api/"
+    const val CONNECT_TIMEOUT = 30L
+    const val READ_TIMEOUT = 30L
+    const val WRITE_TIMEOUT = 30L
+
+    // Development alternatives:
+    // const val BASE_URL = "http://10.0.2.2:3001/api/"     // Emulator
+    // const val BASE_URL = "http://192.168.x.x:3001/api/"  // WiFi
+    // const val BASE_URL = "http://localhost:3001/api/"    // ADB reverse
 
     const val REQUEST_CAMERA_PERMISSION = 100
 }
@@ -327,4 +342,5 @@ dependencies {
 
 ---
 
-**Last Updated**: November 27, 2025
+**Last Updated**: November 30, 2025
+**Version**: 2.4.0 (Production Deployment - Qword Hosting)

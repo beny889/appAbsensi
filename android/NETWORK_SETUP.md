@@ -2,15 +2,37 @@
 
 Panduan lengkap untuk setup networking antara Android app dan Backend API.
 
-## 📋 Prerequisites
+## 🌐 Production (Current Configuration)
+
+App sudah dikonfigurasi untuk production server:
+
+| Environment | URL |
+|-------------|-----|
+| **Backend API** | https://absen.bravenozora.com/api/ |
+| **Web Admin** | https://absen.bravenozora.com |
+
+```kotlin
+// RetrofitClient.kt & Constants.kt
+private const val BASE_URL = "https://absen.bravenozora.com/api/"
+```
+
+**Tidak perlu setup tambahan untuk production!**
+
+---
+
+## 🔧 Development Setup (Local Backend)
+
+Jika ingin menggunakan backend lokal untuk development:
+
+### Prerequisites
 
 - Android device atau emulator terhubung via ADB
 - Backend API berjalan di `http://localhost:3001`
 - ADB (Android Debug Bridge) terinstall
 
-## 🔧 Setup Methods
+### Setup Methods
 
-Ada 3 metode untuk menghubungkan Android app dengan backend:
+Ada 3 metode untuk menghubungkan Android app dengan backend lokal:
 
 ### Method 1: ADB Reverse (Recommended untuk Real Device)
 
@@ -220,17 +242,21 @@ adb shell "curl -X POST http://localhost:3001/api/face-registration/submit \
 ### RetrofitClient.kt
 ```kotlin
 object RetrofitClient {
-    // Main BASE_URL configuration
-    private const val BASE_URL = "http://localhost:3001/api/"
-    // ...
+    // Production URL
+    private const val BASE_URL = "https://absen.bravenozora.com/api/"
+
+    // Development (uncomment one):
+    // private const val BASE_URL = "http://localhost:3001/api/"    // ADB reverse
+    // private const val BASE_URL = "http://10.0.2.2:3001/api/"     // Emulator
+    // private const val BASE_URL = "http://192.168.x.x:3001/api/"  // WiFi
 }
 ```
 
 ### Constants.kt
 ```kotlin
 object Constants {
-    // Backup BASE_URL (optional)
-    const val BASE_URL = "http://localhost:3001/api/"
+    // Network - Production URL
+    const val BASE_URL = "https://absen.bravenozora.com/api/"
     const val CONNECT_TIMEOUT = 30L
     const val READ_TIMEOUT = 30L
     const val WRITE_TIMEOUT = 30L
@@ -246,14 +272,20 @@ object Constants {
 
 ---
 
-## ✅ Checklist untuk Setiap Development Session
+## ✅ Checklist
 
+### Production
+- [x] BASE_URL = https://absen.bravenozora.com/api/
+- [x] App installed dengan APK terbaru
+- [x] Internet connection available
+
+### Development (Local Backend)
 - [ ] Backend running di localhost:3001
 - [ ] Android device connected via USB
 - [ ] USB Debugging enabled
 - [ ] ADB reverse setup (untuk real device)
-- [ ] BASE_URL configured correctly
-- [ ] App installed dengan APK terbaru
+- [ ] BASE_URL changed to localhost
+- [ ] App rebuilt dengan BASE_URL baru
 
 ---
 
@@ -268,5 +300,5 @@ Jika masih ada masalah:
 
 ---
 
-**Last Updated**: 2025-11-24
-**Version**: 1.0
+**Last Updated**: November 30, 2025
+**Version**: 2.4.0 (Production Deployment - Qword Hosting)

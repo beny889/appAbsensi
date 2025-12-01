@@ -1,11 +1,8 @@
 package com.absensi.util
 
 object Constants {
-    // Network
-    // Use 10.0.2.2:3001 for Android Emulator
-    // Use localhost:3001 for Real Device with ADB reverse
-    // IMPORTANT: Run 'adb reverse tcp:3001 tcp:3001' before testing
-    const val BASE_URL = "http://localhost:3001/api/"
+    // Network - Production URL
+    const val BASE_URL = "https://absen.bravenozora.com/api/"
     const val CONNECT_TIMEOUT = 30L
     const val READ_TIMEOUT = 30L
     const val WRITE_TIMEOUT = 30L
