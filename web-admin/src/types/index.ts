@@ -63,6 +63,7 @@ export interface UpdateEmployeeDto {
   position?: string;
   departmentId?: string;
   isActive?: boolean;
+  startDate?: string;
 }
 
 // Attendance Types

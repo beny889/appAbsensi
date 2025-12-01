@@ -18,6 +18,7 @@ export class EmployeeService {
         departmentId: true,
         department: true,
         isActive: true,
+        startDate: true,
         createdAt: true,
         updatedAt: true,
         faceImageUrl: true,
@@ -64,9 +65,15 @@ export class EmployeeService {
       throw new ForbiddenException('You can only update your own profile');
     }
 
+    // Prepare update data, converting startDate string to Date if provided
+    const updateData: any = { ...dto };
+    if (dto.startDate) {
+      updateData.startDate = new Date(dto.startDate);
+    }
+
     return this.prisma.user.update({
       where: { id },
-      data: dto,
+      data: updateData,
       select: {
         id: true,
         name: true,
@@ -75,6 +82,7 @@ export class EmployeeService {
         departmentId: true,
         department: true,
         isActive: true,
+        startDate: true,
         updatedAt: true,
       },
     });

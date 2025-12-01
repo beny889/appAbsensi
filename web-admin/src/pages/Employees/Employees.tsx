@@ -116,6 +116,7 @@ export default function Employees() {
       name: employee.name,
       departmentId: employee.departmentId || '',
       isActive: employee.isActive,
+      startDate: employee.startDate ? employee.startDate.split('T')[0] : '',
     });
     setEditDialogOpen(true);
   };
@@ -441,6 +442,16 @@ export default function Employees() {
                   ))}
                 </Select>
               </FormControl>
+
+              <TextField
+                fullWidth
+                label="Tanggal Mulai Bekerja"
+                type="date"
+                value={editForm.startDate || ''}
+                onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
 
               <FormControlLabel
                 control={
