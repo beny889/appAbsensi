@@ -196,6 +196,21 @@ export class FaceRegistrationService {
       );
     }
 
+    // Validate departmentId if provided
+    if (dto.departmentId) {
+      const department = await this.prisma.department.findUnique({
+        where: { id: dto.departmentId },
+      });
+      if (!department) {
+        throw new BadRequestException(
+          `Department with ID "${dto.departmentId}" not found. Please select a valid department.`
+        );
+      }
+      if (!department.isActive) {
+        throw new BadRequestException('Cannot assign user to inactive department');
+      }
+    }
+
     const role = dto.role || Role.EMPLOYEE;
     let email: string | undefined = dto.email;
     let hashedPassword: string | undefined;
