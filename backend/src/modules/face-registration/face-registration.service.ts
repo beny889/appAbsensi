@@ -324,7 +324,15 @@ export class FaceRegistrationService {
       if (error.meta) {
         console.error('Error meta:', JSON.stringify(error.meta, null, 2));
       }
-      throw error; // Re-throw to let NestJS handle it
+
+      // Return detailed error for debugging (TEMPORARY - remove in production later)
+      throw new BadRequestException({
+        message: 'Approve failed - Debug info',
+        errorName: error.name,
+        errorMessage: error.message,
+        errorCode: error.code || null,
+        errorMeta: error.meta || null,
+      });
     }
   }
 
