@@ -187,31 +187,42 @@ export class FaceRegistrationService {
     dto: ApproveRegistrationDto,
     adminId: string,
   ) {
-    // Get registration
-    const registration = await this.getRegistrationById(id);
+    // Debug: Log incoming request
+    console.log('=== APPROVE REGISTRATION DEBUG ===');
+    console.log('Registration ID:', id);
+    console.log('DTO:', JSON.stringify(dto, null, 2));
+    console.log('Admin ID:', adminId);
 
-    if (registration.status !== RegistrationStatus.PENDING) {
-      throw new BadRequestException(
-        `Registration has already been ${registration.status.toLowerCase()}`,
-      );
-    }
+    try {
+      // Get registration
+      const registration = await this.getRegistrationById(id);
+      console.log('Registration found:', registration.id, registration.name);
 
-    // Validate departmentId if provided
-    if (dto.departmentId) {
-      const department = await this.prisma.department.findUnique({
-        where: { id: dto.departmentId },
-      });
-      if (!department) {
+      if (registration.status !== RegistrationStatus.PENDING) {
         throw new BadRequestException(
-          `Department with ID "${dto.departmentId}" not found. Please select a valid department.`
+          `Registration has already been ${registration.status.toLowerCase()}`,
         );
       }
-      if (!department.isActive) {
-        throw new BadRequestException('Cannot assign user to inactive department');
-      }
-    }
 
-    const role = dto.role || Role.EMPLOYEE;
+      // Validate departmentId if provided
+      if (dto.departmentId) {
+        console.log('Validating departmentId:', dto.departmentId);
+        const department = await this.prisma.department.findUnique({
+          where: { id: dto.departmentId },
+        });
+        console.log('Department found:', department);
+        if (!department) {
+          throw new BadRequestException(
+            `Department with ID "${dto.departmentId}" not found. Please select a valid department.`
+          );
+        }
+        if (!department.isActive) {
+          throw new BadRequestException('Cannot assign user to inactive department');
+        }
+      }
+
+      const role = dto.role || Role.EMPLOYEE;
+      console.log('Role:', role);
     let email: string | undefined = dto.email;
     let hashedPassword: string | undefined;
 
@@ -289,6 +300,9 @@ export class FaceRegistrationService {
       return { user, registration: updatedRegistration };
     });
 
+    console.log('=== APPROVE SUCCESS ===');
+    console.log('User created:', result.user.id, result.user.name);
+
     return {
       message: 'Registration approved successfully',
       user: {
@@ -298,6 +312,20 @@ export class FaceRegistrationService {
         role: result.user.role,
       },
     };
+    } catch (error) {
+      // Debug: Log the actual error
+      console.error('=== APPROVE REGISTRATION ERROR ===');
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      if (error.code) {
+        console.error('Error code:', error.code);
+      }
+      if (error.meta) {
+        console.error('Error meta:', JSON.stringify(error.meta, null, 2));
+      }
+      throw error; // Re-throw to let NestJS handle it
+    }
   }
 
   /**
