@@ -36,6 +36,8 @@ jobs:
 
       # 4. Build Web Admin
       - name: Build Web Admin
+        env:
+          VITE_API_URL: "https://bravenozora.com/api"
         run: |
           cd web-admin
           npm ci
