@@ -6,7 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 // Enums
@@ -38,12 +39,15 @@ model User {
   departmentId  String?
 
   // Face recognition data (for EMPLOYEE only)
-  faceEmbedding  String?      @db.Text  // Single embedding (legacy/backward compatibility)
-  faceEmbeddings String?      @db.Text  // Multiple embeddings as JSON array for better accuracy
-  faceImageUrl   String?
+  faceEmbedding  String?      @db.LongText  // Single embedding (legacy/backward compatibility)
+  faceEmbeddings String?      @db.LongText  // Multiple embeddings as JSON array for better accuracy
+  faceImageUrl   String?      @db.Text
 
   // Status
   isActive      Boolean      @default(true)
+
+  // Employment
+  startDate     DateTime?    // Tanggal mulai bekerja
 
   // Timestamps
   createdAt     DateTime     @default(now())
@@ -65,7 +69,7 @@ model Attendance {
   type            AttendanceType
 
   // Face verification
-  faceImageUrl    String?
+  faceImageUrl    String?        @db.Text
   similarity      Float?         // Face match similarity score
 
   // Late/Early tracking
@@ -94,8 +98,8 @@ model Attendance {
 model Settings {
   id                    String   @id @default(cuid())
   key                   String   @unique
-  value                 String   @db.Text
-  description           String?
+  value                 String   @db.LongText
+  description           String?  @db.Text
 
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -106,15 +110,15 @@ model Settings {
 model FaceRegistration {
   id               String              @id @default(cuid())
   name             String
-  faceEmbedding    String?             @db.Text  // Single embedding (legacy)
-  faceEmbeddings   String?             @db.Text  // Multiple embeddings as JSON array
-  faceImageUrl     String?
+  faceEmbedding    String?             @db.LongText  // Single embedding (legacy)
+  faceEmbeddings   String?             @db.LongText  // Multiple embeddings as JSON array
+  faceImageUrl     String?             @db.Text
   status           RegistrationStatus  @default(PENDING)
 
   // Admin review
   reviewedBy      String?
   reviewedAt      DateTime?
-  rejectionReason String?
+  rejectionReason String?             @db.Text
 
   // Link to created user (if approved)
   userId          String?             @unique
@@ -132,7 +136,7 @@ model FaceRegistration {
 model Department {
   id          String   @id @default(cuid())
   name        String   @unique
-  description String?
+  description String?  @db.Text
   isActive    Boolean  @default(true)
 
   // Timestamps
@@ -170,7 +174,7 @@ model Holiday {
   id          String   @id @default(cuid())
   date        DateTime @db.Date
   name        String
-  description String?
+  description String?  @db.Text
   isGlobal    Boolean  @default(true)  // true = untuk semua karyawan, false = untuk karyawan tertentu
 
   // Timestamps
@@ -219,7 +223,7 @@ model FaceMatchAttempt {
   totalUsersCompared Int      // number of users compared
 
   // Detail of all comparisons (JSON array)
-  allMatches         String   @db.Text
+  allMatches         String   @db.LongText
 
   // Timestamps
   createdAt          DateTime @default(now())
