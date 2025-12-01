@@ -30,10 +30,9 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { workScheduleApi, departmentApi } from '@/api';
-import { WorkSchedule, CreateWorkScheduleDto, UpdateWorkScheduleDto, Department } from '@/types';
+import { WorkSchedule, CreateWorkScheduleDto, Department } from '@/types';
 import { usePageTitle } from '@/contexts/PageTitleContext';
 import toast from 'react-hot-toast';
 

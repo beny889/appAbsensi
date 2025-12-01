@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   Box,
-  Paper,
   Typography,
   TextField,
   Button,
@@ -17,7 +16,6 @@ import {
   Alert,
 } from '@mui/material';
 import {
-  Settings as SettingsIcon,
   Lock as LockIcon,
   Visibility,
   VisibilityOff,

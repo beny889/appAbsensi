@@ -23,10 +23,6 @@ import {
   DialogActions,
   Button,
   IconButton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   InputAdornment,
 } from '@mui/material';
 import { Person as PersonIcon, Delete as DeleteIcon, Search as SearchIcon, Today as TodayIcon, Clear as ClearIcon } from '@mui/icons-material';

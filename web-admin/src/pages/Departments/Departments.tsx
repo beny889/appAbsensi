@@ -25,10 +25,9 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Business as BusinessIcon,
 } from '@mui/icons-material';
 import { departmentApi } from '@/api';
-import { Department, CreateDepartmentDto, UpdateDepartmentDto } from '@/types';
+import { Department, CreateDepartmentDto } from '@/types';
 import { usePageTitle } from '@/contexts/PageTitleContext';
 import toast from 'react-hot-toast';
 

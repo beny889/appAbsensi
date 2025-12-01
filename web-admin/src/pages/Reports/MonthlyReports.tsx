@@ -76,7 +76,10 @@ export default function MonthlyReports() {
     if (day.isEarly) indicators.push('#');
     const indicator = indicators.join(' ');
 
-    if (day.isWeekend) {
+    // Check for "not started" status (before employee's start date)
+    if (day.isNotStarted) {
+      return { text: 'B', indicator: '', bg: '#e0e0e0', color: '#666' };
+    } else if (day.isWeekend) {
       return { text: 'L', indicator: '', bg: '#e0e0e0', color: '#666' };
     } else if (day.checkIn && day.checkOut) {
       return { text: 'H', indicator, bg: '#c8e6c9', color: '#2e7d32' };
@@ -130,6 +133,8 @@ export default function MonthlyReports() {
         const day = emp.dailyStatus[i];
         if (!day) {
           row.push('');
+        } else if (day.isNotStarted) {
+          row.push('B');
         } else if (day.isWeekend) {
           row.push('L');
         } else if (day.checkIn && day.checkOut) {
@@ -181,7 +186,8 @@ export default function MonthlyReports() {
         // Color cells for date columns (1 to displayDays)
         if (data.section === 'body' && data.column.index > 0 && data.column.index <= gridData.displayDays) {
           const value = data.cell.raw as string;
-          if (value === 'L') {
+          if (value === 'L' || value === 'B') {
+            // L = Libur (Weekend), B = Belum Mulai (before start date)
             data.cell.styles.fillColor = [220, 220, 220];
             data.cell.styles.textColor = [100, 100, 100];
           } else if (value.startsWith('H')) {
@@ -209,7 +215,7 @@ export default function MonthlyReports() {
     const finalY = (doc as any).lastAutoTable.finalY + 5;
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
-    doc.text('Keterangan: H = Hadir, M = Masuk saja, P = Pulang saja, L = Libur, - = Tidak Hadir, @ = Terlambat, # = Pulang Awal', 10, finalY);
+    doc.text('Keterangan: H = Hadir, M = Masuk saja, P = Pulang saja, L = Libur, B = Belum Mulai Kerja, - = Tidak Hadir, @ = Terlambat, # = Pulang Awal', 10, finalY);
 
     doc.setFontSize(7);
     doc.text(`Digenerate pada: ${new Date().toLocaleString('id-ID')}`, 10, finalY + 5);
@@ -414,6 +420,10 @@ export default function MonthlyReports() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <Box sx={{ width: 20, height: 20, bgcolor: '#e0e0e0', borderRadius: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 'bold', color: '#666' }}>L</Box>
                 <Typography variant="caption">Libur (Weekend/Hari Libur)</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Box sx={{ width: 20, height: 20, bgcolor: '#e0e0e0', borderRadius: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 'bold', color: '#666' }}>B</Box>
+                <Typography variant="caption">Belum Mulai Kerja</Typography>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <Box sx={{ width: 20, height: 20, bgcolor: '#ffcdd2', borderRadius: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 'bold', color: '#c62828' }}>-</Box>
