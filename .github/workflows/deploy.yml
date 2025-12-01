@@ -1,0 +1,80 @@
+name: Deploy to Qword
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch: # Manual trigger dari GitHub UI
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            web-admin/package-lock.json
+
+      # 3. Build Backend
+      - name: Build Backend
+        run: |
+          cd backend
+          npm ci
+          npm run build
+
+      # 4. Build Web Admin
+      - name: Build Web Admin
+        run: |
+          cd web-admin
+          npm ci
+          npm run build
+
+      # 5. Deploy Backend via FTP (dist folder only)
+      - name: Deploy Backend
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./backend/dist/
+          server-dir: domains/bravenozora.com/backend/dist/
+          dangerous-clean-slate: true
+
+      # 6. Deploy Web Admin via FTP
+      - name: Deploy Web Admin
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./web-admin/dist/
+          server-dir: domains/bravenozora.com/public_html/
+          exclude: |
+            **/api/**
+            **/cgi-bin/**
+
+      # 7. Deployment Complete
+      - name: Deployment Info
+        run: |
+          echo "=============================================="
+          echo "Deployment completed!"
+          echo "=============================================="
+          echo ""
+          echo "Website: https://bravenozora.com"
+          echo "API: https://bravenozora.com/api"
+          echo ""
+          echo "PENTING: Setelah deploy, restart backend manual:"
+          echo "  1. Login ke Terminal di Direct Access Panel"
+          echo "  2. Jalankan: cd ~/domains/bravenozora.com/backend"
+          echo "  3. Jalankan: pm2 restart absensi-backend"
+          echo "     atau: npx pm2 restart absensi-backend"
+          echo "=============================================="
