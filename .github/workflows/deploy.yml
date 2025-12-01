@@ -26,6 +26,8 @@ jobs:
 
       # 3. Build Backend
       - name: Build Backend
+        env:
+          DATABASE_URL: "mysql://user:pass@localhost:3306/db"
         run: |
           cd backend
           npm ci
