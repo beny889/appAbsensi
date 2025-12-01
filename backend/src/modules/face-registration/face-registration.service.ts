@@ -108,13 +108,9 @@ export class FaceRegistrationService {
       throw new BadRequestException('No face data provided');
     }
 
-    // Check for duplicate face (using first embedding)
-    const isDuplicate = await this.checkDuplicateFace(faceEmbedding!);
-    if (isDuplicate) {
-      throw new ConflictException(
-        'This face is already registered. Please contact admin if you believe this is an error.',
-      );
-    }
+    // NOTE: Duplicate check moved to admin approval phase (previewDuplicate)
+    // This allows registrations with similar faces to enter PENDING state
+    // Admin will see warning and decide whether to approve or use "Replace Face"
 
     // Create registration with both single and multiple embeddings
     const registration = await this.prisma.faceRegistration.create({
@@ -256,6 +252,7 @@ export class FaceRegistrationService {
           position: dto.position,
           departmentId: dto.departmentId,
           phone: dto.phone,
+          startDate: dto.startDate ? new Date(dto.startDate) : null,
           faceEmbedding: registration.faceEmbedding,
           faceEmbeddings: registration.faceEmbeddings, // Copy multiple embeddings
           faceImageUrl: registration.faceImageUrl,
@@ -533,6 +530,135 @@ export class FaceRegistrationService {
       approved,
       rejected,
       total,
+    };
+  }
+
+  /**
+   * Preview duplicate check for registration (admin only)
+   * Returns registration info and similar users found
+   */
+  async previewDuplicate(id: string): Promise<{
+    registration: {
+      id: string;
+      name: string;
+      faceImageUrl: string | null;
+      status: RegistrationStatus;
+    };
+    duplicateCheck: {
+      isDuplicate: boolean;
+      matchedUsers: Array<{
+        id: string;
+        name: string;
+        similarity: number;
+        faceImageUrl: string | null;
+      }>;
+    };
+  }> {
+    const registration = await this.prisma.faceRegistration.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        faceEmbedding: true,
+        faceEmbeddings: true,
+        faceImageUrl: true,
+        status: true,
+      },
+    });
+
+    if (!registration) {
+      throw new NotFoundException('Registration not found');
+    }
+
+    // Get face embedding for comparison (prefer first from multiple embeddings)
+    const faceEmbedding = registration.faceEmbedding ||
+      (registration.faceEmbeddings ? JSON.stringify(JSON.parse(registration.faceEmbeddings)[0]) : null);
+
+    const duplicateCheck = faceEmbedding
+      ? await this.checkDuplicateOnApprove(faceEmbedding)
+      : { isDuplicate: false, matchedUsers: [] };
+
+    return {
+      registration: {
+        id: registration.id,
+        name: registration.name,
+        faceImageUrl: registration.faceImageUrl,
+        status: registration.status,
+      },
+      duplicateCheck,
+    };
+  }
+
+  /**
+   * Check for duplicate face when admin approves registration
+   * Returns matched users with similarity percentage
+   */
+  private async checkDuplicateOnApprove(faceEmbedding: string): Promise<{
+    isDuplicate: boolean;
+    matchedUsers: Array<{
+      id: string;
+      name: string;
+      similarity: number;
+      faceImageUrl: string | null;
+    }>;
+  }> {
+    const SIMILARITY_THRESHOLD = 0.8; // 80% similarity threshold
+
+    let newEmbedding: number[];
+    try {
+      newEmbedding = JSON.parse(faceEmbedding);
+    } catch {
+      return { isDuplicate: false, matchedUsers: [] };
+    }
+
+    // Get all approved/active users with face embedding
+    const approvedUsers = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        faceEmbedding: { not: null },
+      },
+      select: {
+        id: true,
+        name: true,
+        faceEmbedding: true,
+        faceImageUrl: true,
+      },
+    });
+
+    const matchedUsers: Array<{
+      id: string;
+      name: string;
+      similarity: number;
+      faceImageUrl: string | null;
+    }> = [];
+
+    for (const user of approvedUsers) {
+      if (!user.faceEmbedding) continue;
+
+      try {
+        const userEmbedding = JSON.parse(user.faceEmbedding) as number[];
+        const similarity = this.calculateCosineSimilarity(newEmbedding, userEmbedding);
+
+        if (similarity >= SIMILARITY_THRESHOLD) {
+          matchedUsers.push({
+            id: user.id,
+            name: user.name,
+            similarity: Math.round(similarity * 100),
+            faceImageUrl: user.faceImageUrl,
+          });
+        }
+      } catch {
+        // Skip users with invalid embedding data
+        continue;
+      }
+    }
+
+    // Sort by similarity descending (highest first)
+    matchedUsers.sort((a, b) => b.similarity - a.similarity);
+
+    return {
+      isDuplicate: matchedUsers.length > 0,
+      matchedUsers,
     };
   }
 

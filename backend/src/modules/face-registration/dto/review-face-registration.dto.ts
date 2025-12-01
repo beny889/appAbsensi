@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsNotEmpty, IsEnum, IsOptional, MinLength, ValidateIf } from 'class-validator';
+import { IsString, IsEmail, IsNotEmpty, IsEnum, IsOptional, MinLength, ValidateIf, IsDateString } from 'class-validator';
 import { Role } from '@prisma/client';
 
 export class ApproveRegistrationDto {
@@ -28,6 +28,10 @@ export class ApproveRegistrationDto {
   @IsString()
   @IsOptional()
   phone?: string;
+
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;  // Format: YYYY-MM-DD - Tanggal mulai bekerja
 }
 
 export class RejectRegistrationDto {

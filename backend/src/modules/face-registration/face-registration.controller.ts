@@ -49,6 +49,17 @@ export class FaceRegistrationController {
   }
 
   /**
+   * ADMIN ONLY: Check for duplicate face before approval
+   * Returns similar users if found
+   */
+  @Get(':id/check-duplicate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async checkDuplicate(@Param('id') id: string) {
+    return this.faceRegistrationService.previewDuplicate(id);
+  }
+
+  /**
    * ADMIN ONLY: Get registration by ID
    */
   @Get(':id')

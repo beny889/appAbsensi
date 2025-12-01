@@ -447,7 +447,7 @@ export class AttendanceService {
       }
     }
 
-    // Get all approved users with face embeddings
+    // Get all approved users with face embeddings (include department + schedule)
     const approvedUsers = await this.prisma.user.findMany({
       where: {
         isActive: true,
@@ -458,6 +458,14 @@ export class AttendanceService {
       },
       include: {
         faceRegistration: true,
+        department: {
+          include: {
+            workSchedules: {
+              where: { isActive: true },
+              take: 1,
+            },
+          },
+        },
       },
     });
 
@@ -503,6 +511,14 @@ export class AttendanceService {
     if (!bestMatch || bestDistance > threshold) {
       throw new UnauthorizedException(
         `Wajah tidak dikenali. Distance: ${bestDistance.toFixed(4)}. Threshold: ${threshold}. Pastikan wajah Anda sudah terdaftar dan disetujui.`,
+      );
+    }
+
+    // Validate work schedule exists before creating attendance
+    const schedule = bestMatch.department?.workSchedules?.[0];
+    if (!schedule) {
+      throw new BadRequestException(
+        'Anda belum memiliki jadwal kerja. Hubungi administrator untuk mengatur departemen dan jadwal kerja.',
       );
     }
 
@@ -809,6 +825,14 @@ export class AttendanceService {
       where: { id: dto.odId },
       include: {
         faceRegistration: true,
+        department: {
+          include: {
+            workSchedules: {
+              where: { isActive: true },
+              take: 1,
+            },
+          },
+        },
       },
     });
 
@@ -824,6 +848,13 @@ export class AttendanceService {
       throw new UnauthorizedException('Face registration not approved.');
     }
 
+    // Validate work schedule exists
+    const schedule = user.department?.workSchedules?.[0];
+    if (!schedule) {
+      throw new BadRequestException(
+        'Anda belum memiliki jadwal kerja. Hubungi administrator untuk mengatur departemen dan jadwal kerja.',
+      );
+    }
 
     // Create attendance record (trusting device verification)
     const attendance = await this.create(user.id, {

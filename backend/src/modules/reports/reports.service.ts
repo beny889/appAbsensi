@@ -133,12 +133,13 @@ export class ReportsService {
     const isFutureMonth = year > today.getFullYear() || (year === today.getFullYear() && month > today.getMonth() + 1);
     const displayDays = isFutureMonth ? 0 : (isCurrentMonth ? today.getDate() : daysInMonth);
 
-    // Get all active employees
+    // Get all active employees with startDate
     const employees = await this.prisma.user.findMany({
       where: { role: 'EMPLOYEE', isActive: true },
       select: {
         id: true,
         name: true,
+        startDate: true,
         department: {
           select: { name: true },
         },
@@ -204,20 +205,45 @@ export class ReportsService {
       let totalEarlyMinutes = 0;
       let absentCount = 0;
 
+      // Get user's start date for checking if they've started working
+      const userStartDate = employee.startDate ? new Date(employee.startDate) : null;
+      if (userStartDate) {
+        userStartDate.setHours(0, 0, 0, 0);
+      }
+
       for (let day = 1; day <= daysInMonth; day++) {
         const dateObj = new Date(year, month - 1, day);
+        dateObj.setHours(0, 0, 0, 0);
         const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+        // Check if date is before user's start date
+        const isBeforeStartDate = userStartDate && dateObj < userStartDate;
+
         // Check if this day is a holiday for this specific user
         const isHoliday = userHolidays.has(dateStr);
 
         const dayRecord = userAttendances.get(day);
 
-        if (isHoliday) {
+        if (isBeforeStartDate) {
+          // Date is before employee's start date - mark as not started
+          dailyStatus.push({
+            date: day,
+            isWeekend: false,
+            isNotStarted: true,
+            checkIn: false,
+            checkOut: false,
+            isLate: false,
+            lateMinutes: 0,
+            isEarly: false,
+            earlyMinutes: 0,
+          });
+        } else if (isHoliday) {
           // Holiday from holidays table - mark as day off
           dailyStatus.push({
             date: day,
             isWeekend: true, // Keep field name for backward compatibility (means "is day off")
             isHoliday: true,
+            isNotStarted: false,
             checkIn: false,
             checkOut: false,
             isLate: false,
@@ -244,6 +270,7 @@ export class ReportsService {
           dailyStatus.push({
             date: day,
             isWeekend: false,
+            isNotStarted: false,
             checkIn: !!dayRecord.checkIn,
             checkOut: !!dayRecord.checkOut,
             isLate,
@@ -252,11 +279,12 @@ export class ReportsService {
             earlyMinutes,
           });
         } else {
-          // No attendance - absent (only count if date is not in the future)
+          // No attendance - absent (only count if date is not in the future AND after start date)
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           const isInPast = dateObj <= today;
 
+          // Only count as absent if employee has started working
           if (isInPast) {
             absentCount++;
           }
@@ -264,6 +292,7 @@ export class ReportsService {
           dailyStatus.push({
             date: day,
             isWeekend: false,
+            isNotStarted: false,
             checkIn: false,
             checkOut: false,
             isLate: false,
