@@ -14,6 +14,7 @@ import {
   ListItemIcon,
   ListItemText,
   Collapse,
+  Badge,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -35,6 +36,7 @@ import {
   BugReport as BugReportIcon,
 } from '@mui/icons-material';
 import { authApi } from '@/api/auth';
+import { faceRegistrationApi } from '@/api';
 import { usePageTitle } from '@/contexts/PageTitleContext';
 
 const drawerWidth = 240;
@@ -63,6 +65,7 @@ const bottomMenuItems = [
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
+  const [pendingRegistrationCount, setPendingRegistrationCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const { title, description } = usePageTitle();
@@ -73,6 +76,23 @@ export default function Layout() {
       setReportsOpen(true);
     }
   }, [location.pathname]);
+
+  // Fetch pending registration count
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      try {
+        const stats = await faceRegistrationApi.getStats();
+        setPendingRegistrationCount(stats.pending || 0);
+      } catch (error) {
+        // Silently fail - don't show error toast for badge count
+      }
+    };
+
+    fetchPendingCount();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchPendingCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -108,7 +128,28 @@ export default function Layout() {
                 selected={location.pathname === item.path}
                 onClick={() => navigate(item.path)}
               >
-                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemIcon>
+                  {item.text === 'Pendaftaran Wajah' ? (
+                    <Badge
+                      badgeContent={pendingRegistrationCount}
+                      color="error"
+                      max={99}
+                      sx={{
+                        '& .MuiBadge-badge': {
+                          right: -3,
+                          top: 3,
+                          fontSize: '0.65rem',
+                          minWidth: '18px',
+                          height: '18px',
+                        },
+                      }}
+                    >
+                      {item.icon}
+                    </Badge>
+                  ) : (
+                    item.icon
+                  )}
+                </ListItemIcon>
                 <ListItemText primary={item.text} />
               </ListItemButton>
             </ListItem>

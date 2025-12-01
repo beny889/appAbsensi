@@ -114,6 +114,7 @@ export const reportsApi = {
 export interface DailyStatus {
   date: number;
   isWeekend: boolean;
+  isNotStarted?: boolean; // True if date is before employee's start date
   checkIn: boolean;
   checkOut: boolean;
   isLate: boolean;
@@ -174,6 +175,29 @@ export interface DashboardPresence {
   notInStore: EmployeeNotInStore[];
 }
 
+// Duplicate Check Types
+export interface DuplicateMatchedUser {
+  id: string;
+  name: string;
+  similarity: number;
+  faceImageUrl: string | null;
+}
+
+export interface DuplicateCheckResult {
+  isDuplicate: boolean;
+  matchedUsers: DuplicateMatchedUser[];
+}
+
+export interface DuplicateCheckResponse {
+  registration: {
+    id: string;
+    name: string;
+    faceImageUrl: string | null;
+    status: string;
+  };
+  duplicateCheck: DuplicateCheckResult;
+}
+
 // Face Registration API
 export const faceRegistrationApi = {
   getPending: async (): Promise<import('@/types').FaceRegistration[]> => {
@@ -183,6 +207,11 @@ export const faceRegistrationApi = {
 
   getById: async (id: string): Promise<import('@/types').FaceRegistration> => {
     const response = await apiClient.get(`/face-registration/${id}`);
+    return response.data;
+  },
+
+  checkDuplicate: async (id: string): Promise<DuplicateCheckResponse> => {
+    const response = await apiClient.get(`/face-registration/${id}/check-duplicate`);
     return response.data;
   },
 

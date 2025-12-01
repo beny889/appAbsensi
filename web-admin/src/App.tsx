@@ -16,6 +16,8 @@ import Holidays from './pages/Holidays/Holidays';
 import Settings from './pages/Settings/Settings';
 import FaceMatchLogs from './pages/FaceMatchLogs';
 import Layout from './components/layout/Layout';
+import NotFound from './pages/NotFound/NotFound';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 const theme = createTheme({
   palette: {
@@ -35,38 +37,42 @@ const PrivateRoute = ({ children }: { children: JSX.Element }) => {
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <PageTitleProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/"
-              element={
-                <PrivateRoute>
-                  <Layout />
-                </PrivateRoute>
-              }
-            >
-              <Route index element={<Dashboard />} />
-              <Route path="employees" element={<Employees />} />
-              <Route path="attendance" element={<Attendance />} />
-              <Route path="face-registration/pending" element={<PendingRegistrations />} />
-              <Route path="departments" element={<Departments />} />
-              <Route path="work-schedules" element={<WorkSchedules />} />
-              <Route path="reports/daily" element={<DailyReports />} />
-              <Route path="reports/monthly" element={<MonthlyReports />} />
-              <Route path="reports/employee-detail" element={<EmployeeDetailReport />} />
-              <Route path="holidays" element={<Holidays />} />
-              <Route path="face-match-logs" element={<FaceMatchLogs />} />
-              <Route path="settings" element={<Settings />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </PageTitleProvider>
-      <Toaster position="top-right" />
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <PageTitleProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route
+                path="/"
+                element={
+                  <PrivateRoute>
+                    <Layout />
+                  </PrivateRoute>
+                }
+              >
+                <Route index element={<Dashboard />} />
+                <Route path="employees" element={<Employees />} />
+                <Route path="attendance" element={<Attendance />} />
+                <Route path="face-registration/pending" element={<PendingRegistrations />} />
+                <Route path="departments" element={<Departments />} />
+                <Route path="work-schedules" element={<WorkSchedules />} />
+                <Route path="reports/daily" element={<DailyReports />} />
+                <Route path="reports/monthly" element={<MonthlyReports />} />
+                <Route path="reports/employee-detail" element={<EmployeeDetailReport />} />
+                <Route path="holidays" element={<Holidays />} />
+                <Route path="face-match-logs" element={<FaceMatchLogs />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="*" element={<NotFound />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </PageTitleProvider>
+        <Toaster position="top-right" />
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

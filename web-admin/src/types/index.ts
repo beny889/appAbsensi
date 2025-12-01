@@ -41,6 +41,7 @@ export interface User {
   phone?: string;
   isActive: boolean;
   faceImageUrl?: string;
+  startDate?: string; // Tanggal mulai bekerja
 }
 
 export interface LoginResponse {
@@ -161,6 +162,7 @@ export interface ApproveRegistrationDto {
   position?: string;
   departmentId?: string;
   phone?: string;
+  startDate?: string; // Format: YYYY-MM-DD - Tanggal mulai bekerja
 }
 
 export interface RejectRegistrationDto {
