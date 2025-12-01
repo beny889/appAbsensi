@@ -37,7 +37,7 @@ jobs:
       # 4. Build Web Admin
       - name: Build Web Admin
         env:
-          VITE_API_URL: "https://bravenozora.com/api"
+          VITE_API_URL: "https://absen.bravenozora.com/api"
         run: |
           cd web-admin
           npm ci
@@ -51,7 +51,7 @@ jobs:
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./backend/dist/
-          server-dir: domains/bravenozora.com/backend/dist/
+          server-dir: domains/absen.bravenozora.com/backend/dist/
           dangerous-clean-slate: true
 
       # 6. Deploy Web Admin via FTP
@@ -62,7 +62,7 @@ jobs:
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./web-admin/dist/
-          server-dir: domains/bravenozora.com/public_html/
+          server-dir: domains/absen.bravenozora.com/public_html/
           exclude: |
             **/api/**
             **/cgi-bin/**
@@ -74,12 +74,8 @@ jobs:
           echo "Deployment completed!"
           echo "=============================================="
           echo ""
-          echo "Website: https://bravenozora.com"
-          echo "API: https://bravenozora.com/api"
+          echo "Website: https://absen.bravenozora.com"
+          echo "API: https://absen.bravenozora.com/api"
           echo ""
-          echo "PENTING: Setelah deploy, restart backend manual:"
-          echo "  1. Login ke Terminal di Direct Access Panel"
-          echo "  2. Jalankan: cd ~/domains/bravenozora.com/backend"
-          echo "  3. Jalankan: pm2 restart absensi-backend"
-          echo "     atau: npx pm2 restart absensi-backend"
+          echo "PENTING: Restart Node.js App di cPanel setelah deploy"
           echo "=============================================="
