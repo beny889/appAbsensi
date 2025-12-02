@@ -441,48 +441,48 @@ export class FaceRegistrationService {
       throw new BadRequestException('Invalid face embedding format');
     }
 
-    // Check against existing users
+    // Check against existing users (supports multiple embeddings)
     const users = await this.prisma.user.findMany({
       where: {
-        faceEmbedding: { not: null },
+        OR: [
+          { faceEmbedding: { not: null } },
+          { faceEmbeddings: { not: null } },
+        ],
       },
       select: {
         faceEmbedding: true,
+        faceEmbeddings: true,
       },
     });
 
     for (const user of users) {
-      if (user.faceEmbedding) {
-        const existingEmbedding = JSON.parse(user.faceEmbedding);
-        const similarity = this.calculateCosineSimilarity(
-          newEmbedding,
-          existingEmbedding,
-        );
+      // Parse all embeddings for this user
+      const userEmbeddings = this.parseUserEmbeddings(user);
 
-        if (similarity >= SIMILARITY_THRESHOLD) {
-          return true; // Duplicate found
-        }
+      // Check against all user's embeddings, find best similarity
+      const bestSimilarity = this.findBestSimilarityForUser(newEmbedding, userEmbeddings);
+
+      if (bestSimilarity >= SIMILARITY_THRESHOLD) {
+        return true; // Duplicate found
       }
     }
 
-    // Check against pending registrations
+    // Check against pending registrations (supports multiple embeddings)
     const pendingRegistrations = await this.prisma.faceRegistration.findMany({
       where: {
         status: RegistrationStatus.PENDING,
       },
       select: {
         faceEmbedding: true,
+        faceEmbeddings: true,
       },
     });
 
     for (const registration of pendingRegistrations) {
-      const existingEmbedding = JSON.parse(registration.faceEmbedding);
-      const similarity = this.calculateCosineSimilarity(
-        newEmbedding,
-        existingEmbedding,
-      );
+      const regEmbeddings = this.parseRegistrationEmbeddings(registration);
+      const bestSimilarity = this.findBestSimilarityForUser(newEmbedding, regEmbeddings);
 
-      if (similarity >= SIMILARITY_THRESHOLD) {
+      if (bestSimilarity >= SIMILARITY_THRESHOLD) {
         return true; // Duplicate found
       }
     }
@@ -521,6 +521,72 @@ export class FaceRegistrationService {
     }
 
     return dotProduct / (magnitude1 * magnitude2);
+  }
+
+  /**
+   * Parse user's face embeddings (supports both single and multiple embeddings)
+   * Returns array of embeddings for comparison
+   */
+  private parseUserEmbeddings(user: { faceEmbedding?: string | null; faceEmbeddings?: string | null }): number[][] {
+    const embeddings: number[][] = [];
+
+    // Prefer multiple embeddings if available (more accurate)
+    if (user.faceEmbeddings) {
+      try {
+        const parsed = JSON.parse(user.faceEmbeddings);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          embeddings.push(...parsed);
+        }
+      } catch (e) {
+        // Invalid JSON, skip
+      }
+    }
+
+    // Fallback to single embedding if multiple not available
+    if (embeddings.length === 0 && user.faceEmbedding) {
+      try {
+        const parsed = JSON.parse(user.faceEmbedding);
+        if (Array.isArray(parsed)) {
+          embeddings.push(parsed);
+        }
+      } catch (e) {
+        // Invalid JSON, skip
+      }
+    }
+
+    return embeddings;
+  }
+
+  /**
+   * Parse registration's face embeddings (supports both single and multiple)
+   */
+  private parseRegistrationEmbeddings(registration: { faceEmbedding?: string | null; faceEmbeddings?: string | null }): number[][] {
+    return this.parseUserEmbeddings(registration);
+  }
+
+  /**
+   * Find best (highest) similarity between provided embedding and user's multiple embeddings
+   * Compares against all stored embeddings and returns the best match
+   */
+  private findBestSimilarityForUser(
+    providedEmbedding: number[],
+    userEmbeddings: number[][],
+  ): number {
+    let bestSimilarity = 0;
+
+    for (const userEmb of userEmbeddings) {
+      try {
+        const similarity = this.calculateCosineSimilarity(providedEmbedding, userEmb);
+        if (similarity > bestSimilarity) {
+          bestSimilarity = similarity;
+        }
+      } catch (e) {
+        // Skip invalid embeddings
+        continue;
+      }
+    }
+
+    return bestSimilarity;
   }
 
   /**
@@ -626,16 +692,20 @@ export class FaceRegistrationService {
       return { isDuplicate: false, matchedUsers: [] };
     }
 
-    // Get all approved/active users with face embedding
+    // Get all approved/active users with face embedding (supports multiple embeddings)
     const approvedUsers = await this.prisma.user.findMany({
       where: {
         isActive: true,
-        faceEmbedding: { not: null },
+        OR: [
+          { faceEmbedding: { not: null } },
+          { faceEmbeddings: { not: null } },
+        ],
       },
       select: {
         id: true,
         name: true,
         faceEmbedding: true,
+        faceEmbeddings: true,
         faceImageUrl: true,
       },
     });
@@ -648,23 +718,20 @@ export class FaceRegistrationService {
     }> = [];
 
     for (const user of approvedUsers) {
-      if (!user.faceEmbedding) continue;
+      // Parse all embeddings for this user
+      const userEmbeddings = this.parseUserEmbeddings(user);
+      if (userEmbeddings.length === 0) continue;
 
-      try {
-        const userEmbedding = JSON.parse(user.faceEmbedding) as number[];
-        const similarity = this.calculateCosineSimilarity(newEmbedding, userEmbedding);
+      // Find best similarity across all user's embeddings
+      const bestSimilarity = this.findBestSimilarityForUser(newEmbedding, userEmbeddings);
 
-        if (similarity >= SIMILARITY_THRESHOLD) {
-          matchedUsers.push({
-            id: user.id,
-            name: user.name,
-            similarity: Math.round(similarity * 100),
-            faceImageUrl: user.faceImageUrl,
-          });
-        }
-      } catch {
-        // Skip users with invalid embedding data
-        continue;
+      if (bestSimilarity >= SIMILARITY_THRESHOLD) {
+        matchedUsers.push({
+          id: user.id,
+          name: user.name,
+          similarity: Math.round(bestSimilarity * 100),
+          faceImageUrl: user.faceImageUrl,
+        });
       }
     }
 

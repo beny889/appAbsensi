@@ -236,14 +236,26 @@ export class AttendanceService {
     }
 
     // Verify face embedding exists (should exist if approved, but double check)
-    if (!user.faceEmbedding) {
+    if (!user.faceEmbedding && !user.faceEmbeddings) {
       throw new BadRequestException('Face data not found. Please contact administrator.');
     }
 
-    const distance = this.calculateEuclideanDistance(
-      JSON.parse(user.faceEmbedding),
-      JSON.parse(dto.faceEmbedding),
-    );
+    // Parse user's multiple embeddings for better accuracy
+    const userEmbeddings = this.parseUserEmbeddings(user);
+    if (userEmbeddings.length === 0) {
+      throw new BadRequestException('Face data is invalid. Please contact administrator.');
+    }
+
+    // Parse provided embedding
+    let providedEmbedding: number[];
+    try {
+      providedEmbedding = JSON.parse(dto.faceEmbedding);
+    } catch {
+      throw new BadRequestException('Invalid face embedding format');
+    }
+
+    // Find best distance across all user's embeddings
+    const distance = this.findBestDistanceForUser(providedEmbedding, userEmbeddings);
 
     // Get dynamic threshold from settings
     const threshold = await this.getFaceDistanceThreshold();
@@ -448,10 +460,14 @@ export class AttendanceService {
     }
 
     // Get all approved users with face embeddings (include department + schedule)
+    // Include both faceEmbedding (legacy) and faceEmbeddings (multiple) for better accuracy
     const approvedUsers = await this.prisma.user.findMany({
       where: {
         isActive: true,
-        faceEmbedding: { not: null },
+        OR: [
+          { faceEmbedding: { not: null } },
+          { faceEmbeddings: { not: null } },
+        ],
         faceRegistration: {
           status: 'APPROVED',
         },
@@ -479,29 +495,22 @@ export class AttendanceService {
     const threshold = await this.getFaceDistanceThreshold();
 
     // Find best face match (lowest distance = best match)
+    // Uses multiple embeddings per user for better accuracy
     let bestMatch: any = null;
     let bestDistance = Infinity;
 
-
     for (const user of approvedUsers) {
-      if (!user.faceEmbedding) continue;
+      // Parse all embeddings for this user (supports multiple angles)
+      const userEmbeddings = this.parseUserEmbeddings(user);
+      if (userEmbeddings.length === 0) continue;
 
-      try {
-        const userEmbedding = JSON.parse(user.faceEmbedding);
-        const distance = this.calculateEuclideanDistance(
-          providedEmbedding,
-          userEmbedding,
-        );
+      // Find best distance across all user's embeddings
+      const distance = this.findBestDistanceForUser(providedEmbedding, userEmbeddings);
 
-
-        // Lower distance = better match
-        if (distance < bestDistance) {
-          bestDistance = distance;
-          bestMatch = user;
-        }
-      } catch (error) {
-        // Skip users with invalid embeddings
-        continue;
+      // Lower distance = better match
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestMatch = user;
       }
     }
 
@@ -568,11 +577,14 @@ export class AttendanceService {
       }
     }
 
-    // Get all approved users with face embeddings
+    // Get all approved users with face embeddings (supports multiple embeddings)
     const approvedUsers = await this.prisma.user.findMany({
       where: {
         isActive: true,
-        faceEmbedding: { not: null },
+        OR: [
+          { faceEmbedding: { not: null } },
+          { faceEmbeddings: { not: null } },
+        ],
         faceRegistration: {
           status: 'APPROVED',
         },
@@ -599,27 +611,19 @@ export class AttendanceService {
     // Get dynamic threshold from settings
     const threshold = await this.getFaceDistanceThreshold();
 
-    // Find best face match (lowest distance = best match)
+    // Find best face match using multiple embeddings per user
     let bestMatch: any = null;
     let bestDistance = Infinity;
 
     for (const user of approvedUsers) {
-      if (!user.faceEmbedding) continue;
+      const userEmbeddings = this.parseUserEmbeddings(user);
+      if (userEmbeddings.length === 0) continue;
 
-      try {
-        const userEmbedding = JSON.parse(user.faceEmbedding);
-        const distance = this.calculateEuclideanDistance(
-          providedEmbedding,
-          userEmbedding,
-        );
+      const distance = this.findBestDistanceForUser(providedEmbedding, userEmbeddings);
 
-        // Lower distance = better match
-        if (distance < bestDistance) {
-          bestDistance = distance;
-          bestMatch = user;
-        }
-      } catch (error) {
-        continue;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestMatch = user;
       }
     }
 
@@ -731,6 +735,65 @@ export class AttendanceService {
     }
 
     return Math.sqrt(sum);
+  }
+
+  /**
+   * Parse user's face embeddings (supports both single and multiple embeddings)
+   * Returns array of embeddings for comparison
+   */
+  private parseUserEmbeddings(user: { faceEmbedding?: string | null; faceEmbeddings?: string | null }): number[][] {
+    const embeddings: number[][] = [];
+
+    // Prefer multiple embeddings if available (more accurate)
+    if (user.faceEmbeddings) {
+      try {
+        const parsed = JSON.parse(user.faceEmbeddings);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          embeddings.push(...parsed);
+        }
+      } catch (e) {
+        // Invalid JSON, skip
+      }
+    }
+
+    // Fallback to single embedding if multiple not available
+    if (embeddings.length === 0 && user.faceEmbedding) {
+      try {
+        const parsed = JSON.parse(user.faceEmbedding);
+        if (Array.isArray(parsed)) {
+          embeddings.push(parsed);
+        }
+      } catch (e) {
+        // Invalid JSON, skip
+      }
+    }
+
+    return embeddings;
+  }
+
+  /**
+   * Find best (lowest) distance between provided embedding and user's multiple embeddings
+   * Compares against all stored embeddings and returns the best match
+   */
+  private findBestDistanceForUser(
+    providedEmbedding: number[],
+    userEmbeddings: number[][],
+  ): number {
+    let bestDistance = Infinity;
+
+    for (const userEmb of userEmbeddings) {
+      try {
+        const distance = this.calculateEuclideanDistance(providedEmbedding, userEmb);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+        }
+      } catch (e) {
+        // Skip invalid embeddings (dimension mismatch, etc.)
+        continue;
+      }
+    }
+
+    return bestDistance;
   }
 
   /**
