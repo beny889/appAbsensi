@@ -111,7 +111,13 @@ export default function Layout() {
   const drawer = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Fixed Header */}
-      <Toolbar>
+      <Toolbar sx={{ gap: 1.5 }}>
+        <Box
+          component="img"
+          src="/logo.png"
+          alt="Logo"
+          sx={{ width: 32, height: 32, borderRadius: '50%' }}
+        />
         <Typography variant="h6" noWrap component="div">
           Absensi Admin
         </Typography>

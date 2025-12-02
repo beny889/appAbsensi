@@ -278,6 +278,7 @@ export interface UserMatchInfo {
   distance: number;
   similarity: number;
   isMatch: boolean;
+  embeddingsCount?: number; // number of embeddings used for this user
 }
 
 export interface FaceMatchAttemptListResponse {

@@ -223,6 +223,7 @@ export default function Attendance() {
         <Table>
           <TableHead>
             <TableRow>
+              <TableCell align="center" sx={{ width: 60 }}><strong>No</strong></TableCell>
               <TableCell><strong>Foto</strong></TableCell>
               <TableCell><strong>Karyawan</strong></TableCell>
               <TableCell><strong>Tipe</strong></TableCell>
@@ -237,7 +238,7 @@ export default function Attendance() {
           <TableBody>
             {paginatedAttendances.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                   <Typography variant="body2" color="textSecondary">
                     {attendances.length === 0
                       ? 'Belum ada data absensi'
@@ -248,8 +249,13 @@ export default function Attendance() {
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedAttendances.map((attendance) => (
+              paginatedAttendances.map((attendance, index) => (
                 <TableRow key={attendance.id} hover>
+                  <TableCell align="center">
+                    <Typography variant="body2" color="text.secondary">
+                      {page * rowsPerPage + index + 1}
+                    </Typography>
+                  </TableCell>
                   <TableCell>
                     {(attendance.faceImageUrl || attendance.user?.faceImageUrl) ? (
                       <Tooltip title="Klik untuk memperbesar">

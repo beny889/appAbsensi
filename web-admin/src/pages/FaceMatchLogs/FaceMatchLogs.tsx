@@ -119,6 +119,7 @@ const FaceMatchLogs: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
+                <TableCell align="center" sx={{ width: 60 }}>No</TableCell>
                 <TableCell>Waktu</TableCell>
                 <TableCell>Tipe</TableCell>
                 <TableCell>Status</TableCell>
@@ -131,8 +132,13 @@ const FaceMatchLogs: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {attempts.map((attempt) => (
+              {attempts.map((attempt, index) => (
                 <TableRow key={attempt.id} hover>
+                  <TableCell align="center">
+                    <Typography variant="body2" color="text.secondary">
+                      {page * rowsPerPage + index + 1}
+                    </Typography>
+                  </TableCell>
                   <TableCell>{formatDateTime(attempt.createdAt)}</TableCell>
                   <TableCell>
                     <Chip
@@ -161,7 +167,7 @@ const FaceMatchLogs: React.FC = () => {
                     {attempt.bestDistance?.toFixed(4) || '-'}
                   </TableCell>
                   <TableCell align="right">
-                    {attempt.bestSimilarity ? `${(attempt.bestSimilarity * 100).toFixed(1)}%` : '-'}
+                    {attempt.bestSimilarity ? `${attempt.bestSimilarity.toFixed(1)}%` : '-'}
                   </TableCell>
                   <TableCell align="right">
                     {attempt.totalUsersCompared}
@@ -177,7 +183,7 @@ const FaceMatchLogs: React.FC = () => {
               ))}
               {attempts.length === 0 && !loading && (
                 <TableRow>
-                  <TableCell colSpan={9} align="center">
+                  <TableCell colSpan={10} align="center">
                     Belum ada data face match log
                   </TableCell>
                 </TableRow>
@@ -258,6 +264,7 @@ const FaceMatchLogs: React.FC = () => {
                       <TableCell>Nama</TableCell>
                       <TableCell align="right">Distance</TableCell>
                       <TableCell align="right">Similarity</TableCell>
+                      <TableCell align="center">Embeddings</TableCell>
                       <TableCell align="center">Match?</TableCell>
                     </TableRow>
                   </TableHead>
@@ -284,6 +291,16 @@ const FaceMatchLogs: React.FC = () => {
                         </TableCell>
                         <TableCell align="right">{match.distance.toFixed(4)}</TableCell>
                         <TableCell align="right">{match.similarity}%</TableCell>
+                        <TableCell align="center">
+                          <Tooltip title={`${match.embeddingsCount || 1} embedding(s) digunakan untuk pencocokan`}>
+                            <Chip
+                              label={match.embeddingsCount || 1}
+                              size="small"
+                              color={match.embeddingsCount && match.embeddingsCount > 1 ? 'info' : 'default'}
+                              variant={match.embeddingsCount && match.embeddingsCount > 1 ? 'filled' : 'outlined'}
+                            />
+                          </Tooltip>
+                        </TableCell>
                         <TableCell align="center">
                           {match.isMatch ? (
                             <SuccessIcon color="success" />

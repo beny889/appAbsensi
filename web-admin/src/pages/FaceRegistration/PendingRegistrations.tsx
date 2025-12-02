@@ -245,6 +245,7 @@ export default function PendingRegistrations() {
         <Table>
           <TableHead>
             <TableRow>
+              <TableCell align="center" sx={{ width: 60 }}><strong>No</strong></TableCell>
               <TableCell><strong>Foto</strong></TableCell>
               <TableCell><strong>Nama</strong></TableCell>
               <TableCell><strong>Status</strong></TableCell>
@@ -255,15 +256,20 @@ export default function PendingRegistrations() {
           <TableBody>
             {registrations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   <Typography variant="body2" color="textSecondary" sx={{ py: 4 }}>
                     Tidak ada pendaftaran yang menunggu persetujuan
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              registrations.map((registration) => (
+              registrations.map((registration, index) => (
                 <TableRow key={registration.id} hover>
+                  <TableCell align="center">
+                    <Typography variant="body2" color="text.secondary">
+                      {index + 1}
+                    </Typography>
+                  </TableCell>
                   <TableCell>
                     <Avatar
                       src={registration.faceImageUrl}

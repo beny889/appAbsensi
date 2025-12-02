@@ -25,17 +25,17 @@ import { SettingsModule } from './modules/settings/settings.module';
       {
         name: 'short',
         ttl: 1000, // 1 second
-        limit: 3, // 3 requests per second
+        limit: 10, // 10 requests per second
       },
       {
         name: 'medium',
         ttl: 60000, // 1 minute
-        limit: 20, // 20 requests per minute
+        limit: 100, // 100 requests per minute
       },
       {
         name: 'long',
         ttl: 60000 * 60, // 1 hour
-        limit: 100, // 100 requests per hour
+        limit: 500, // 500 requests per hour
       },
     ]),
     PrismaModule,

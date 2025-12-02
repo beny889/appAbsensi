@@ -9,6 +9,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   Chip,
   CircularProgress,
   TextField,
@@ -59,6 +60,10 @@ export default function Employees() {
   const [editForm, setEditForm] = useState<UpdateEmployeeDto>({});
   const [saving, setSaving] = useState(false);
 
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   usePageTitle('Manajemen Karyawan', 'Kelola data karyawan yang terdaftar dalam sistem');
 
   useEffect(() => {
@@ -91,8 +96,29 @@ export default function Employees() {
       emp.department?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Reset page when search changes
+  useEffect(() => {
+    setPage(0);
+  }, [search]);
+
   const activeCount = employees.filter(e => e.isActive).length;
   const inactiveCount = employees.filter(e => !e.isActive).length;
+
+  // Pagination handlers
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Get paginated employees
+  const paginatedEmployees = filteredEmployees.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   const handleDelete = async (employee: Employee) => {
     if (!confirm(`Hapus karyawan "${employee.name}"?\n\nKaryawan hanya bisa dihapus jika belum memiliki record absensi.`)) {
@@ -154,51 +180,49 @@ export default function Employees() {
 
   return (
     <Box>
-      {/* Stats Cards */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <Card sx={{ minWidth: 150, flex: 1 }}>
-          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 2 }}>
-            <Avatar sx={{ bgcolor: '#1976d2', width: 48, height: 48 }}>
-              <PeopleIcon />
+      {/* Stats Cards + Search in One Row */}
+      <Box sx={{ display: 'flex', gap: 1.5, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Card sx={{ minWidth: 120 }}>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
+            <Avatar sx={{ bgcolor: '#1976d2', width: 32, height: 32 }}>
+              <PeopleIcon sx={{ fontSize: 18 }} />
             </Avatar>
             <Box>
-              <Typography variant="h5" fontWeight="bold">{employees.length}</Typography>
-              <Typography variant="body2" color="text.secondary">Total Karyawan</Typography>
+              <Typography variant="h6" fontWeight="bold" lineHeight={1}>{employees.length}</Typography>
+              <Typography variant="caption" color="text.secondary">Total</Typography>
             </Box>
           </CardContent>
         </Card>
-        <Card sx={{ minWidth: 150, flex: 1 }}>
-          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 2 }}>
-            <Avatar sx={{ bgcolor: '#4caf50', width: 48, height: 48 }}>
-              <CheckCircleIcon />
+        <Card sx={{ minWidth: 100 }}>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
+            <Avatar sx={{ bgcolor: '#4caf50', width: 32, height: 32 }}>
+              <CheckCircleIcon sx={{ fontSize: 18 }} />
             </Avatar>
             <Box>
-              <Typography variant="h5" fontWeight="bold">{activeCount}</Typography>
-              <Typography variant="body2" color="text.secondary">Aktif</Typography>
+              <Typography variant="h6" fontWeight="bold" lineHeight={1}>{activeCount}</Typography>
+              <Typography variant="caption" color="text.secondary">Aktif</Typography>
             </Box>
           </CardContent>
         </Card>
-        <Card sx={{ minWidth: 150, flex: 1 }}>
-          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 2 }}>
-            <Avatar sx={{ bgcolor: '#9e9e9e', width: 48, height: 48 }}>
-              <CancelIcon />
+        <Card sx={{ minWidth: 100 }}>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
+            <Avatar sx={{ bgcolor: '#9e9e9e', width: 32, height: 32 }}>
+              <CancelIcon sx={{ fontSize: 18 }} />
             </Avatar>
             <Box>
-              <Typography variant="h5" fontWeight="bold">{inactiveCount}</Typography>
-              <Typography variant="body2" color="text.secondary">Nonaktif</Typography>
+              <Typography variant="h6" fontWeight="bold" lineHeight={1}>{inactiveCount}</Typography>
+              <Typography variant="caption" color="text.secondary">Nonaktif</Typography>
             </Box>
           </CardContent>
         </Card>
-      </Box>
 
-      {/* Search */}
-      <Paper sx={{ p: 2, mb: 3 }} elevation={1}>
+        {/* Search */}
         <TextField
-          fullWidth
-          placeholder="Cari berdasarkan nama atau departemen..."
+          placeholder="Cari nama atau departemen..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           size="small"
+          sx={{ flex: 1, minWidth: 200 }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -206,19 +230,15 @@ export default function Employees() {
               </InputAdornment>
             ),
           }}
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2,
-            }
-          }}
         />
-      </Paper>
+      </Box>
 
       {/* Table */}
       <TableContainer component={Paper} elevation={1} sx={{ borderRadius: 2 }}>
         <Table>
           <TableHead>
             <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+              <TableCell sx={{ fontWeight: 'bold', py: 2, width: 60 }} align="center">No</TableCell>
               <TableCell sx={{ fontWeight: 'bold', py: 2 }}>Karyawan</TableCell>
               <TableCell sx={{ fontWeight: 'bold', py: 2 }}>Departemen</TableCell>
               <TableCell sx={{ fontWeight: 'bold', py: 2 }} align="center">Status</TableCell>
@@ -227,9 +247,9 @@ export default function Employees() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredEmployees.length === 0 ? (
+            {paginatedEmployees.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                   <PersonIcon sx={{ fontSize: 48, color: '#ccc', mb: 1 }} />
                   <Typography variant="body1" color="text.secondary">
                     {search ? 'Tidak ada hasil pencarian' : 'Belum ada data karyawan'}
@@ -237,7 +257,7 @@ export default function Employees() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredEmployees.map((employee) => (
+              paginatedEmployees.map((employee, index) => (
                 <TableRow
                   key={employee.id}
                   hover
@@ -246,6 +266,11 @@ export default function Employees() {
                     opacity: employee.isActive ? 1 : 0.6,
                   }}
                 >
+                  <TableCell align="center">
+                    <Typography variant="body2" color="text.secondary">
+                      {page * rowsPerPage + index + 1}
+                    </Typography>
+                  </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       {employee.faceImageUrl ? (
@@ -338,14 +363,21 @@ export default function Employees() {
         </Table>
       </TableContainer>
 
-      {/* Footer */}
-      {filteredEmployees.length > 0 && (
-        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            Menampilkan {filteredEmployees.length} dari {employees.length} karyawan
-          </Typography>
-        </Box>
-      )}
+      {/* Pagination */}
+      <TablePagination
+        component="div"
+        count={filteredEmployees.length}
+        page={page}
+        onPageChange={handleChangePage}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
+        rowsPerPageOptions={[5, 10, 25, 50]}
+        labelRowsPerPage="Baris per halaman:"
+        labelDisplayedRows={({ from, to, count }) =>
+          `${from}-${to} dari ${count}`
+        }
+        sx={{ borderTop: '1px solid #e0e0e0' }}
+      />
 
       {/* Image Preview Dialog */}
       <Dialog

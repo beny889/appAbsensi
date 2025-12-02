@@ -514,7 +514,6 @@ export class AttendanceService {
       }
     }
 
-
     // Check if best match is within threshold (lower distance = match)
     // If distance > threshold, face is NOT recognized
     if (!bestMatch || bestDistance > threshold) {

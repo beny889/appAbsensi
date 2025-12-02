@@ -45,11 +45,12 @@ export default function Login() {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
+        height: '100vh',
         display: 'flex',
-        alignItems: 'flex-start',
+        flexDirection: 'column',
+        alignItems: 'center',
         justifyContent: 'center',
-        pt: 8,
+        overflow: 'hidden',
         background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 50%, #0d47a1 100%)',
       }}
     >
@@ -123,6 +124,20 @@ export default function Login() {
             </Button>
           </Box>
         </Paper>
+
+        {/* Footer */}
+        <Typography
+          variant="body2"
+          sx={{
+            mt: 4,
+            color: 'rgba(255,255,255,0.7)',
+            textAlign: 'center',
+          }}
+        >
+          © 2025 Absensi System • v2.4.0
+          <br />
+          Created by Beny
+        </Typography>
       </Box>
     </Box>
   );
