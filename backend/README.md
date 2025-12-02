@@ -2,6 +2,16 @@
 
 Backend API untuk sistem absensi dengan **on-device face recognition** (MobileFaceNet).
 
+## Environments
+
+| Environment | API URL | Web Admin | Database |
+|-------------|---------|-----------|----------|
+| **Production** | https://absen.bravenozora.com/api | https://absen.bravenozora.com | paketquc_absensi |
+| **Testing** | https://testing.bravenozora.com/api | https://testing.bravenozora.com | paketquc_testing |
+| **Local** | http://localhost:3001/api | http://localhost:5173 | absensi_local |
+
+**Hosting**: Qword Shared Hosting (CloudLinux + Phusion Passenger)
+
 ## Tech Stack
 
 | Component | Technology |
@@ -9,9 +19,10 @@ Backend API untuk sistem absensi dengan **on-device face recognition** (MobileFa
 | Framework | NestJS |
 | Language | TypeScript |
 | ORM | Prisma |
-| Database | PostgreSQL |
+| Database | MySQL (Production) / PostgreSQL (Dev) |
 | Auth | JWT + Passport |
 | Body Parser | 50MB limit (untuk base64 images) |
+| Process Manager | PM2 (ecosystem.config.js) |
 
 ## Features
 
@@ -83,12 +94,24 @@ Seed script (`prisma/seed.ts`) akan:
 
 **Note**: Jalankan seed ulang akan menghapus data dummy lama dan membuat yang baru.
 
-## Environment Variables (.env)
+## Environment Variables
 
+### Development (.env)
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/absensi_db"
 JWT_SECRET="your-secret-key"
 PORT=3001
+```
+
+### Production (.env.production)
+```env
+# MySQL (Qword Hosting)
+DATABASE_URL="mysql://USER:PASSWORD@localhost:3306/DATABASE"
+PORT=3001
+NODE_ENV=production
+JWT_SECRET="your-strong-64-char-secret-key"
+JWT_EXPIRATION=24h
+ALLOWED_ORIGINS=https://bravenozora.com,https://www.bravenozora.com
 ```
 
 ## API Endpoints
@@ -405,6 +428,89 @@ npm run start:prod
 - Adjust threshold via web admin (Settings > Face Similarity)
 - Re-register dengan pencahayaan lebih baik
 
+### Production Error 500 - Prisma Schema Mismatch
+
+**Gejala:**
+- Beberapa endpoint return 500 (employees, holidays, reports)
+- Endpoint lain berfungsi normal (departments, work-schedules)
+- API health check (`/api/health`) return OK
+- Tidak ada error log di backend
+
+**Penyebab:**
+Prisma schema di production tidak sinkron dengan database/code. Biasanya terjadi setelah:
+- Menambah field baru di schema (misal: `startDate`)
+- Deploy code tanpa deploy schema
+- Lupa regenerate Prisma client
+
+**Diagnosis:**
+```bash
+# SSH ke server
+source ~/nodevenv/domains/absen.bravenozora.com/backend/20/bin/activate
+cd ~/domains/absen.bravenozora.com/backend
+
+# Bandingkan schema dengan database
+cat prisma/schema.prisma | grep startDate  # Cek field di schema
+mysql -u USER -p'PASS' -h localhost DB -e "DESCRIBE users;"  # Cek kolom di DB
+```
+
+**Solusi:**
+1. Upload `prisma/schema.prisma` terbaru dari lokal ke server
+2. Regenerate Prisma client:
+   ```bash
+   source ~/nodevenv/domains/absen.bravenozora.com/backend/20/bin/activate
+   cd ~/domains/absen.bravenozora.com/backend
+   npx prisma generate
+   touch tmp/restart.txt
+   ```
+
+**Pencegahan:**
+- Selalu upload `prisma/schema.prisma` saat deploy
+- Jalankan `npx prisma generate` setelah upload schema
+- Tambahkan ke deployment checklist
+
+---
+
+## 🚀 Production Deployment (Qword Hosting)
+
+### Prerequisites
+- Qword shared hosting dengan CloudLinux Node.js selector
+- Node.js 20 atau lebih baru
+- MySQL database
+
+### Deployment Steps
+
+1. **Create MySQL Database** di cPanel Qword
+2. **Upload files** ke `~/domains/bravenozora.com/backend/`
+3. **Setup Node.js** via CloudLinux selector:
+   ```bash
+   # SSH ke server
+   export PATH=/opt/alt/alt-nodejs20/root/usr/bin:$PATH
+   cd ~/domains/bravenozora.com/backend
+   npm install
+   npx prisma generate
+   npx prisma db push
+   ```
+4. **Create Admin User**:
+   ```bash
+   node dist/prisma/create-admin.js
+   ```
+5. **Start dengan PM2**:
+   ```bash
+   pm2 start ecosystem.config.js
+   ```
+
+### File Structure di Server
+```
+~/domains/bravenozora.com/
+├── backend/
+│   ├── dist/           # Compiled JS
+│   ├── prisma/         # Schema
+│   ├── uploads/        # Face images
+│   ├── .env.production
+│   └── ecosystem.config.js
+└── public_html/        # Web admin (Vite build)
+```
+
 ---
 
 ## ✅ Production Ready
@@ -413,8 +519,28 @@ npm run start:prod
 - **Security Hardened**: JWT validation aktif
 - **Error Logging**: Hanya error logging untuk production tracking
 - **Clean API**: Response bersih tanpa debug info
+- **MySQL Support**: Compatible dengan shared hosting
+- **HTTPS**: SSL certificate aktif
 
 ---
 
-**Last Updated**: November 27, 2025
-**Version**: 2.3.0 (Security Hardening - Rate Limiting, JWT, Password Policy)
+## Server Debug Commands
+
+### Production
+```bash
+source ~/nodevenv/domains/absen.bravenozora.com/backend/20/bin/activate
+cd ~/domains/absen.bravenozora.com/backend
+node dist/main.js
+```
+
+### Testing
+```bash
+source ~/nodevenv/domains/testing.bravenozora.com/backend/20/bin/activate
+cd ~/domains/testing.bravenozora.com/backend
+node dist/main.js
+```
+
+---
+
+**Last Updated**: December 2, 2025
+**Version**: 2.5.0 (Added Testing Environment Support)

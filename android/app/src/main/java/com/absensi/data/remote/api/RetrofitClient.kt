@@ -1,5 +1,6 @@
 package com.absensi.data.remote.api
 
+import com.absensi.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -8,8 +9,8 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
 
-    // Production URL
-    private const val BASE_URL = "https://absen.bravenozora.com/api/"
+    // BASE_URL is now set from BuildConfig (debug vs release)
+    private val BASE_URL = BuildConfig.BASE_URL
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY

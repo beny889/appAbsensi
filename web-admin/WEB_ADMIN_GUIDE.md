@@ -2,6 +2,13 @@
 
 Panduan lengkap untuk Web Admin Panel sistem absensi.
 
+## 🌐 Production URLs
+
+| Environment | URL |
+|-------------|-----|
+| **Web Admin** | https://bravenozora.com |
+| **Backend API** | https://bravenozora.com/api/ |
+
 ## Tech Stack
 
 | Component | Technology |
@@ -207,9 +214,14 @@ Halaman konfigurasi untuk pengaturan sistem:
 
 ## Configuration
 
-### .env
+### .env (Development)
 ```bash
 VITE_API_URL=http://localhost:3001/api
+```
+
+### .env.production
+```bash
+VITE_API_URL=https://bravenozora.com/api
 ```
 
 ### API Client (src/api/index.ts)
@@ -427,4 +439,5 @@ npm run type-check
 
 ---
 
-**Last Updated**: November 27, 2025
+**Last Updated**: November 30, 2025
+**Version**: 2.4.0 (Production Deployment - Qword Hosting)

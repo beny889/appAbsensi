@@ -37,3 +37,8 @@ Thumbs.db
 .settings/
 .vscode/
 nul
+
+# Local development (don't push to production)
+android-local/
+backend/.env.local
+web-admin/.env.local

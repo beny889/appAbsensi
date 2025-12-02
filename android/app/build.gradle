@@ -22,9 +22,26 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix ".dev"
+            versionNameSuffix "-dev"
+            resValue "string", "app_name", "Absensi DEV"
+            buildConfigField "String", "BASE_URL", "\"http://localhost:3001/api/\""
+        }
+        staging {
+            initWith debug
+            applicationIdSuffix ".testing"
+            versionNameSuffix "-testing"
+            resValue "string", "app_name", "Absensi TEST"
+            buildConfigField "String", "BASE_URL", "\"https://testing.bravenozora.com/api/\""
+            debuggable true
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            resValue "string", "app_name", "Absensi"
+            // Production URL
+            buildConfigField "String", "BASE_URL", "\"https://absen.bravenozora.com/api/\""
         }
     }
 

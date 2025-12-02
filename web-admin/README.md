@@ -2,9 +2,17 @@
 
 Web-based admin panel untuk sistem absensi dengan React, TypeScript, dan Material-UI.
 
-## ✅ Status: READY TO USE
+## 🌐 Environments
 
-Project ini sudah lengkap dan siap digunakan dengan fitur-fitur berikut:
+| Environment | Web Admin | Backend API |
+|-------------|-----------|-------------|
+| **Production** | https://absen.bravenozora.com | https://absen.bravenozora.com/api |
+| **Testing** | https://testing.bravenozora.com | https://testing.bravenozora.com/api |
+| **Local** | http://localhost:5173 | http://localhost:3001/api |
+
+## ✅ Status: PRODUCTION READY
+
+Project ini sudah di-deploy dan berjalan di production dengan fitur-fitur berikut:
 
 ### 📦 Fitur Yang Sudah Diimplementasi
 
@@ -92,8 +100,22 @@ npm run dev
 ### Configuration
 
 Edit `.env` file:
+
+**Development:**
 ```bash
 VITE_API_URL=http://localhost:3001/api
+VITE_APP_NAME=Absensi Admin Panel
+```
+
+**Testing (.env.testing):**
+```bash
+VITE_API_URL=https://testing.bravenozora.com/api
+VITE_APP_NAME=Absensi Admin [TESTING]
+```
+
+**Production (.env.production):**
+```bash
+VITE_API_URL=https://absen.bravenozora.com/api
 VITE_APP_NAME=Absensi Admin Panel
 ```
 
@@ -299,7 +321,40 @@ npm run build
 
 This creates a `dist/` folder with optimized production files.
 
-### Deploy to Vercel
+### Deploy to Qword Hosting (Current Production)
+
+1. **Build locally:**
+   ```bash
+   npm run build
+   ```
+
+2. **Upload `dist/` contents:**
+   - Production: `~/domains/absen.bravenozora.com/public_html/`
+   - Testing: `~/domains/testing.bravenozora.com/public_html/`
+
+3. **Structure di server:**
+   ```
+   public_html/
+   ├── index.html
+   ├── assets/
+   │   ├── index-xxx.js
+   │   └── index-xxx.css
+   └── favicon.ico
+   ```
+
+4. **Configure .htaccess** untuk SPA routing:
+   ```apache
+   <IfModule mod_rewrite.c>
+     RewriteEngine On
+     RewriteBase /
+     RewriteRule ^index\.html$ - [L]
+     RewriteCond %{REQUEST_FILENAME} !-f
+     RewriteCond %{REQUEST_FILENAME} !-d
+     RewriteRule . /index.html [L]
+   </IfModule>
+   ```
+
+### Deploy to Vercel (Alternative)
 
 ```bash
 # Install Vercel CLI
@@ -312,7 +367,7 @@ vercel deploy
 vercel --prod
 ```
 
-### Deploy to Netlify
+### Deploy to Netlify (Alternative)
 
 ```bash
 # Install Netlify CLI
@@ -330,7 +385,7 @@ netlify deploy --prod
 For production, set these environment variables:
 
 ```bash
-VITE_API_URL=https://your-api-domain.com/api
+VITE_API_URL=https://absen.bravenozora.com/api
 VITE_APP_NAME=Absensi Admin Panel
 ```
 
@@ -448,6 +503,9 @@ Private - Internal Use Only
 - **Security Hardened**: Dev bypass login sudah dihapus
 - **Clean UI**: Visual debug elements sudah dihapus
 - **Proper Error Handling**: Error messages user-friendly
+- **Deployed**:
+  - Production: https://absen.bravenozora.com
+  - Testing: https://testing.bravenozora.com
 
 ---
 
@@ -455,5 +513,5 @@ Private - Internal Use Only
 
 ---
 
-**Last Updated**: November 27, 2025
-**Version**: 2.3.0 (Security Hardening, Login UI Redesign)
+**Last Updated**: December 2, 2025
+**Version**: 2.5.0 (Added Testing Environment Support)

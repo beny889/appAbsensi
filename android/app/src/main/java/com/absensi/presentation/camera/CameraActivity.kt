@@ -108,6 +108,9 @@ class CameraActivity : AppCompatActivity() {
     // Transition state to prevent capture during animation
     private var isInTransition: Boolean = false
 
+    // Track active dialog type for debugging and preventing overlap
+    private var activeDialogType: String? = null
+
     companion object {
         const val EXTRA_IS_CHECK_IN = "extra_is_check_in"
         const val EXTRA_MODE = "extra_mode"
@@ -908,14 +911,12 @@ class CameraActivity : AppCompatActivity() {
         scheduledTime: String,
         earlyMinutes: Int
     ) {
-        // Guard: Don't show dialog if Activity is finishing/destroyed
-        if (isFinishing || isDestroyed) {
-            Log.w(TAG, "Activity is finishing/destroyed, skipping early checkout dialog")
-            isShowingConfirmationDialog = false
+        // Guard: Don't show dialog if Activity is finishing/destroyed or another dialog showing
+        if (!canShowDialog("EarlyCheckout") || isFinishing || isDestroyed) {
             return
         }
 
-        isShowingConfirmationDialog = true  // Block face detection while dialog is showing
+        markDialogShowing("EarlyCheckout")
 
         try {
             val dialogView = layoutInflater.inflate(R.layout.dialog_early_checkout, null)
@@ -939,9 +940,9 @@ class CameraActivity : AppCompatActivity() {
 
             btnConfirm.setOnClickListener {
                 dialog.dismiss()
+                markDialogDismissed()
                 // Face recognition STOP TOTAL setelah konfirmasi pulang awal
                 isProfileConfirmed = true
-                isShowingConfirmationDialog = false
                 isProcessing = true
                 binding.progressBar.visibility = android.view.View.VISIBLE
                 updateStatus("Memproses Pulang...")
@@ -950,8 +951,8 @@ class CameraActivity : AppCompatActivity() {
 
             btnCancel.setOnClickListener {
                 dialog.dismiss()
+                markDialogDismissed()
                 // Allow user to scan again - reset state for retry
-                isShowingConfirmationDialog = false
                 stableFrameCount = 0
                 lastFaceBounds = null
                 isFaceDetected = false
@@ -963,8 +964,8 @@ class CameraActivity : AppCompatActivity() {
             // Safety: Reset state if dialog is dismissed unexpectedly (by system)
             dialog.setOnDismissListener {
                 // Only reset if not already handled by buttons
-                if (isShowingConfirmationDialog) {
-                    isShowingConfirmationDialog = false
+                if (isShowingConfirmationDialog && activeDialogType == "EarlyCheckout") {
+                    markDialogDismissed()
                     isProcessing = false
                 }
             }
@@ -985,7 +986,7 @@ class CameraActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to show early checkout dialog: ${e.message}")
-            isShowingConfirmationDialog = false
+            markDialogDismissed()
             isProcessing = false
         }
     }
@@ -1012,6 +1013,10 @@ class CameraActivity : AppCompatActivity() {
             }
             errorMessage.contains("inactive", ignoreCase = true) -> {
                 Pair("Akun Tidak Aktif", "Silakan hubungi admin")
+            }
+            errorMessage.contains("jadwal kerja", ignoreCase = true) ||
+            errorMessage.contains("work schedule", ignoreCase = true) -> {
+                Pair("Belum Ada Jadwal", "Hubungi admin untuk mengatur departemen dan jadwal kerja Anda")
             }
             errorMessage.contains("network", ignoreCase = true) ||
             errorMessage.contains("connection", ignoreCase = true) ||
@@ -1045,12 +1050,11 @@ class CameraActivity : AppCompatActivity() {
         onCancel: () -> Unit
     ) {
         // Guard: Don't show if dialog already showing or Activity is finishing
-        if (isShowingConfirmationDialog || isFinishing || isDestroyed) {
-            Log.w(TAG, "Dialog already showing or Activity finishing, skipping identity dialog")
+        if (!canShowDialog("IdentityConfirmation") || isFinishing || isDestroyed) {
             return
         }
 
-        isShowingConfirmationDialog = true  // Set flag inside function to prevent race condition
+        markDialogShowing("IdentityConfirmation")
 
         try {
             val dialogView = layoutInflater.inflate(R.layout.dialog_identity_confirmation, null)
@@ -1085,18 +1089,20 @@ class CameraActivity : AppCompatActivity() {
             // Button click handlers
             btnConfirm.setOnClickListener {
                 dialog.dismiss()
+                markDialogDismissed()
                 onConfirm()
             }
 
             btnCancel.setOnClickListener {
                 dialog.dismiss()
+                markDialogDismissed()
                 onCancel()
             }
 
             // Safety: Reset state if dialog is dismissed unexpectedly (by system)
             dialog.setOnDismissListener {
-                if (isShowingConfirmationDialog) {
-                    isShowingConfirmationDialog = false
+                if (isShowingConfirmationDialog && activeDialogType == "IdentityConfirmation") {
+                    markDialogDismissed()
                 }
             }
 
@@ -1105,7 +1111,7 @@ class CameraActivity : AppCompatActivity() {
             dialog.show()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to show identity dialog: ${e.message}")
-            isShowingConfirmationDialog = false
+            markDialogDismissed()
         }
     }
 
@@ -1573,23 +1579,28 @@ class CameraActivity : AppCompatActivity() {
     }
 
     /**
-     * Submit registration with multiple images/embeddings
+     * Submit registration with multiple embeddings but only 1 photo
+     * Sends: 5 embeddings (for accuracy) + 1 photo (for admin preview)
+     * This reduces payload from ~4MB to ~800KB
      */
     private fun submitMultipleRegistration() {
         CoroutineScope(Dispatchers.Main).launch {
             try {
-                // Convert all embeddings to JSON array strings
+                // Convert all embeddings to JSON array strings (keep all 5 for accuracy)
                 val embeddingsJson = capturedEmbeddings.map { embedding ->
                     embedding.joinToString(separator = ",", prefix = "[", postfix = "]")
                 }
 
+                // Only send the first photo (front-facing pose) for admin preview
+                // This reduces payload by ~80% while maintaining face recognition accuracy
+                val singleImage = listOf(capturedImages.first())
 
-                // Use the new repository method for multiple images
+                // Use the new repository method for multiple embeddings with single image
                 val result = withContext(Dispatchers.IO) {
                     registrationRepository.submitRegistrationWithMultipleEmbeddings(
                         name = userName,
                         faceEmbeddings = embeddingsJson,
-                        faceImagesBase64 = capturedImages
+                        faceImagesBase64 = singleImage  // Only 1 photo instead of 5
                     )
                 }
 
@@ -1635,90 +1646,60 @@ class CameraActivity : AppCompatActivity() {
     }
 
     private fun showNameInputDialog() {
+        // Guard: Don't show if another dialog is showing
+        if (!canShowDialog("NameInput")) return
+        markDialogShowing("NameInput")
+
         val minNameLength = 3
+        val dialogView = layoutInflater.inflate(R.layout.dialog_name_input, null)
 
-        // Create rounded EditText with modern styling
-        val editText = EditText(this).apply {
-            hint = "Masukkan nama lengkap (min. $minNameLength karakter)"
-            textSize = 18f
-            setTextColor(ContextCompat.getColor(context, android.R.color.black))
-            setHintTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
-
-            // Add padding
-            val padding = (20 * resources.displayMetrics.density).toInt()
-            setPadding(padding, padding, padding, padding)
-
-            // Modern rounded background
-            background = ContextCompat.getDrawable(context, android.R.drawable.editbox_background)
-            setSingleLine()
-
-            // Input type for better keyboard
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                       android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
-        }
-
-        // Helper text to show character count
-        val helperText = android.widget.TextView(this).apply {
-            text = "0/$minNameLength karakter"
-            textSize = 12f
-            setTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
-            val paddingHorizontal = (20 * resources.displayMetrics.density).toInt()
-            val paddingVertical = (8 * resources.displayMetrics.density).toInt()
-            setPadding(paddingHorizontal, paddingVertical, paddingHorizontal, 0)
-        }
-
-        // Create custom view container with padding
-        val container = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            val containerPadding = (24 * resources.displayMetrics.density).toInt()
-            setPadding(containerPadding, containerPadding / 2, containerPadding, 0)
-            addView(editText)
-            addView(helperText)
-        }
-
-        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-            .setIcon(android.R.drawable.ic_menu_camera)
-            .setTitle("📸 Registrasi Wajah")
-            .setMessage("Silakan masukkan nama lengkap Anda terlebih dahulu, kemudian kamera akan dibuka untuk mengambil foto wajah.")
-            .setView(container)
-            .setPositiveButton("LANJUTKAN") { dialog, _ ->
-                val name = editText.text.toString().trim()
-                userName = name  // Save name to state
-                updateTitle()    // Update title with name
-                dialog.dismiss()
-
-                // Reset multi-capture registration state
-                registrationStep = 0
-                capturedImages.clear()
-                capturedEmbeddings.clear()
-
-                // Enable registration mode on face frame and update status
-                setFaceFrameRegistrationMode(true)
-                updateRegistrationStatus(0)
-
-                // Show arrow indicator for first pose
-                showArrowIndicator(0)
-
-                if (checkPermissions()) {
-                    startCamera()
-                } else {
-                    requestPermissions()
-                }
-            }
-            .setNegativeButton("BATAL") { _, _ ->
-                finish()  // Close activity if user cancels
-            }
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
             .setCancelable(false)
             .create()
 
-        dialog.show()
+        // Get views
+        val tilName = dialogView.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.tilName)
+        val etName = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etName)
+        val tvHelper = dialogView.findViewById<TextView>(R.id.tvHelper)
+        val btnContinue = dialogView.findViewById<MaterialButton>(R.id.btnContinue)
+        val btnCancel = dialogView.findViewById<MaterialButton>(R.id.btnCancel)
 
-        // Initially disable the positive button until valid input
-        val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-        positiveButton?.isEnabled = false
+        // Button click handlers
+        btnContinue.setOnClickListener {
+            val name = etName.text.toString().trim()
+            userName = name  // Save name to state
+            updateTitle()    // Update title with name
+            dialog.dismiss()
+            markDialogDismissed()
+
+            // Reset multi-capture registration state
+            registrationStep = 0
+            capturedImages.clear()
+            capturedEmbeddings.clear()
+
+            // Enable registration mode on face frame and update status
+            setFaceFrameRegistrationMode(true)
+            updateRegistrationStatus(0)
+
+            // Show arrow indicator for first pose
+            showArrowIndicator(0)
+
+            if (checkPermissions()) {
+                startCamera()
+            } else {
+                requestPermissions()
+            }
+        }
+
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+            markDialogDismissed()
+            finish()  // Close activity if user cancels
+        }
 
         // Add TextWatcher for real-time validation
-        editText.addTextChangedListener(object : android.text.TextWatcher {
+        etName.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: android.text.Editable?) {
@@ -1726,35 +1707,46 @@ class CameraActivity : AppCompatActivity() {
                 val isValid = length >= minNameLength
 
                 // Update helper text
-                helperText.text = "$length/$minNameLength karakter"
-                helperText.setTextColor(
+                tvHelper.text = if (isValid) "✓ Nama valid" else "Minimal $minNameLength karakter"
+                tvHelper.setTextColor(
                     ContextCompat.getColor(
                         this@CameraActivity,
                         if (isValid) android.R.color.holo_green_dark else android.R.color.darker_gray
                     )
                 )
 
-                // Enable/disable button
-                positiveButton?.isEnabled = isValid
-                positiveButton?.alpha = if (isValid) 1.0f else 0.5f
+                // Update TextInputLayout error state
+                if (length > 0 && !isValid) {
+                    tilName.error = "Minimal $minNameLength karakter"
+                } else {
+                    tilName.error = null
+                }
+
+                // Enable/disable button with animation
+                btnContinue.isEnabled = isValid
+                btnContinue.alpha = if (isValid) 1.0f else 0.5f
             }
         })
 
+        // Show dialog with transparent background
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
+
         // Auto-focus and show keyboard
-        editText.requestFocus()
+        etName.requestFocus()
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
 
-        // Style the buttons
-        positiveButton?.apply {
-            setTextColor(ContextCompat.getColor(this@CameraActivity, android.R.color.holo_blue_dark))
-            textSize = 16f
-            isAllCaps = false
-            alpha = 0.5f  // Initially dimmed since disabled
-        }
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
-            setTextColor(ContextCompat.getColor(this@CameraActivity, android.R.color.darker_gray))
-            textSize = 16f
-            isAllCaps = false
+        // Animate icon container
+        val iconContainer = dialogView.findViewById<android.widget.FrameLayout>(R.id.iconContainer)
+        iconContainer?.let {
+            it.scaleX = 0f
+            it.scaleY = 0f
+            it.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(300)
+                .setInterpolator(android.view.animation.OvershootInterpolator())
+                .start()
         }
     }
 
@@ -1872,17 +1864,50 @@ class CameraActivity : AppCompatActivity() {
             subMessage = null,
             buttonText = "Coba Lagi",
             onDismiss = {
-                // Reset state for retry
-                stableFrameCount = 0
-                lastFaceBounds = null
-                isFaceDetected = false
-                isCountingDown = false
+                // Reset state for retry - full reset including registration state
+                resetRegistrationState()
             }
         )
     }
 
     /**
+     * Full reset of registration state for retry
+     * Resets step counter, captured data, and camera state
+     * Note: Dialog flag is handled by markDialogDismissed() in button handlers
+     */
+    private fun resetRegistrationState() {
+        // Reset face detection state
+        stableFrameCount = 0
+        lastFaceBounds = null
+        isFaceDetected = false
+        isCountingDown = false
+        isProcessing = false
+        isInTransition = false
+        // Note: isShowingConfirmationDialog is reset by markDialogDismissed()
+
+        // Reset registration multi-capture state
+        if (activityMode == MODE_REGISTRATION) {
+            registrationStep = 0
+            capturedImages.clear()
+            capturedEmbeddings.clear()
+
+            // Reset UI to step 0
+            updateRegistrationStatus(0)
+            binding.faceFrameProgress.setProgress(0)
+            showArrowIndicator(0)
+        }
+
+        // Update status
+        if (activityMode == MODE_REGISTRATION) {
+            updateStatus(registrationGuidance[0])
+        } else {
+            updateStatus("Posisikan wajah dalam bingkai")
+        }
+    }
+
+    /**
      * Show attendance-specific error dialog with retry and close options
+     * Also stops face recognition while dialog is visible
      */
     private fun showAttendanceErrorDialog(
         title: String,
@@ -1890,6 +1915,10 @@ class CameraActivity : AppCompatActivity() {
         subMessage: String,
         isCheckIn: Boolean
     ) {
+        // Guard: Don't show if another dialog is showing
+        if (!canShowDialog("AttendanceError")) return
+        markDialogShowing("AttendanceError")
+
         val dialogView = layoutInflater.inflate(R.layout.dialog_result, null)
 
         val dialog = AlertDialog.Builder(this)
@@ -1948,12 +1977,14 @@ class CameraActivity : AppCompatActivity() {
         // Button click handlers
         btnAction.setOnClickListener {
             dialog.dismiss()
+            markDialogDismissed()
             // Sync threshold from backend before retry
             syncThresholdAndRetry()
         }
 
         btnClose.setOnClickListener {
             dialog.dismiss()
+            markDialogDismissed()
             finish()
         }
 
@@ -1982,6 +2013,40 @@ class CameraActivity : AppCompatActivity() {
             .start()
     }
 
+    // ==================== DIALOG GUARD HELPERS ====================
+
+    /**
+     * Check if it's safe to show a new dialog
+     * Returns true if no dialog is currently showing
+     */
+    private fun canShowDialog(dialogType: String): Boolean {
+        if (isShowingConfirmationDialog) {
+            Log.w(TAG, "⚠️ Cannot show $dialogType - another dialog is active: $activeDialogType")
+            return false
+        }
+        return true
+    }
+
+    /**
+     * Mark dialog as showing - MUST call before building dialog
+     */
+    private fun markDialogShowing(dialogType: String) {
+        isShowingConfirmationDialog = true
+        activeDialogType = dialogType
+        Log.d(TAG, "📱 Dialog showing: $dialogType")
+    }
+
+    /**
+     * Mark dialog as dismissed - MUST call after dialog.dismiss()
+     */
+    private fun markDialogDismissed() {
+        Log.d(TAG, "📱 Dialog dismissed: $activeDialogType")
+        isShowingConfirmationDialog = false
+        activeDialogType = null
+    }
+
+    // ==================== DIALOG FUNCTIONS ====================
+
     /**
      * Dialog type enum for styling
      */
@@ -1991,6 +2056,7 @@ class CameraActivity : AppCompatActivity() {
 
     /**
      * Show modern result dialog with custom styling
+     * Also stops face recognition while dialog is visible
      */
     private fun showResultDialog(
         type: DialogType,
@@ -2000,6 +2066,10 @@ class CameraActivity : AppCompatActivity() {
         buttonText: String,
         onDismiss: () -> Unit
     ) {
+        // Guard: Don't show if another dialog is showing
+        if (!canShowDialog("ResultDialog-$type")) return
+        markDialogShowing("ResultDialog-$type")
+
         val dialogView = layoutInflater.inflate(R.layout.dialog_result, null)
 
         val dialog = AlertDialog.Builder(this)
@@ -2059,6 +2129,7 @@ class CameraActivity : AppCompatActivity() {
         // Button click handler
         btnAction.setOnClickListener {
             dialog.dismiss()
+            markDialogDismissed()
             onDismiss()
         }
 
@@ -2124,7 +2195,7 @@ class CameraActivity : AppCompatActivity() {
 
                         binding.progressBar.visibility = android.view.View.GONE
 
-                        // Reset state for retry
+                        // Reset state for retry (dialog already dismissed by markDialogDismissed())
                         stableFrameCount = 0
                         lastFaceBounds = null
                         isFaceDetected = false
@@ -2142,7 +2213,7 @@ class CameraActivity : AppCompatActivity() {
                         Log.e(TAG, "✗ Failed to sync threshold: ${error.message}")
                         binding.progressBar.visibility = android.view.View.GONE
 
-                        // Still allow retry with cached threshold
+                        // Still allow retry with cached threshold (dialog already dismissed)
                         stableFrameCount = 0
                         lastFaceBounds = null
                         isFaceDetected = false
@@ -2161,7 +2232,7 @@ class CameraActivity : AppCompatActivity() {
                 Log.e(TAG, "Error syncing threshold", e)
                 binding.progressBar.visibility = android.view.View.GONE
 
-                // Still allow retry with cached threshold
+                // Still allow retry with cached threshold (dialog already dismissed)
                 stableFrameCount = 0
                 lastFaceBounds = null
                 isFaceDetected = false
@@ -2176,6 +2247,7 @@ class CameraActivity : AppCompatActivity() {
         // Stop camera processing when activity is paused
         isProcessing = true  // Block further processing
         isShowingConfirmationDialog = false  // Reset dialog state
+        activeDialogType = null  // Reset active dialog tracking
 
         // Unbind camera to release resources for other activities
         cameraProvider?.unbindAll()
@@ -2186,6 +2258,7 @@ class CameraActivity : AppCompatActivity() {
         // Reset state and restart camera when activity is resumed
         isProcessing = false
         isShowingConfirmationDialog = false
+        activeDialogType = null  // Reset active dialog tracking
         isProfileConfirmed = false
         stableFrameCount = 0
         lastFaceBounds = null

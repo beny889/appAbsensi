@@ -27,6 +27,7 @@
         <activity
             android:name=".presentation.splash.SplashActivity"
             android:exported="true"
+            android:screenOrientation="portrait"
             android:theme="@style/Theme.Absensi.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -38,12 +39,14 @@
         <activity
             android:name=".presentation.auth.AuthActivity"
             android:exported="false"
+            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
         <!-- Main Activity -->
         <activity
             android:name=".presentation.main.MainActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="portrait" />
 
         <!-- Camera Activity -->
         <activity

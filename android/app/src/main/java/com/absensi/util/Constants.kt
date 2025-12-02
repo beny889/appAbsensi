@@ -1,8 +1,10 @@
 package com.absensi.util
 
+import com.absensi.BuildConfig
+
 object Constants {
-    // Network - Production URL
-    const val BASE_URL = "https://absen.bravenozora.com/api/"
+    // Network - URL from BuildConfig (debug vs release)
+    val BASE_URL = BuildConfig.BASE_URL
     const val CONNECT_TIMEOUT = 30L
     const val READ_TIMEOUT = 30L
     const val WRITE_TIMEOUT = 30L

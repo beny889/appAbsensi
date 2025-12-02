@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Absensi</string>
+    <!-- app_name is now defined in build.gradle per build type -->
 
     <!-- Home Screen -->
     <string name="greeting">Selamat Datang,</string>
