@@ -23,8 +23,9 @@ object ImageUtils {
 
     /**
      * Convert ImageProxy to Bitmap with correct rotation
+     * Made public for face alignment processing
      */
-    private fun imageProxyToBitmap(image: ImageProxy): Bitmap {
+    fun imageProxyToBitmap(image: ImageProxy): Bitmap {
         val yBuffer = image.planes[0].buffer
         val uBuffer = image.planes[1].buffer
         val vBuffer = image.planes[2].buffer

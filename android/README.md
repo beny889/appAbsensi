@@ -33,6 +33,7 @@ Project ini sudah terhubung ke production server dan siap digunakan dengan fitur
 - ✅ **Identity Confirmation Dialog** (Konfirmasi identitas sebelum submit)
 - ✅ **Face Match Logging** (Log setiap percobaan face matching ke backend)
 - ✅ **Camera Lifecycle Management** (Proper onPause/onResume handling)
+- ✅ **Face Alignment** (v2.6.0) - Rotasi wajah berdasarkan posisi mata untuk akurasi +3%
 
 ## 🧠 On-Device Face Recognition
 
@@ -75,6 +76,38 @@ Sistem ini menggunakan **MobileFaceNet TFLite** untuk face recognition langsung 
 | **Threshold** | Dynamic dari backend (default: 0.35) |
 | **Accuracy** | 99.55% on LFW |
 
+### Face Alignment (v2.6.0)
+
+**Meningkatkan akurasi ~3% dengan alignment berbasis posisi mata**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    FACE ALIGNMENT FLOW                       │
+├─────────────────────────────────────────────────────────────┤
+│  1. ML Kit deteksi LEFT_EYE dan RIGHT_EYE landmarks         │
+│           ↓                                                  │
+│  2. Hitung sudut kemiringan wajah dari posisi mata          │
+│           ↓                                                  │
+│  3. Rotasi gambar untuk membuat mata horizontal             │
+│           ↓                                                  │
+│  4. Crop berdasarkan jarak mata (2.5x eye distance)         │
+│           ↓                                                  │
+│  5. Posisi mata di 35% dari atas output                     │
+│           ↓                                                  │
+│  6. Resize ke 112x112 untuk MobileFaceNet                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Test Results:**
+| Method | Similarity |
+|--------|------------|
+| Tanpa Alignment | 76.0% |
+| Dengan Alignment | **78.9%** |
+
+**Key Files:**
+- `FaceAlignmentUtils.kt` - Logic alignment dan crop
+- `CameraActivity.kt` - Integrasi dengan camera flow
+
 ## 📁 Struktur Package
 
 ```
@@ -84,6 +117,7 @@ com.absensi/
 │   ├── Constants.kt               # ✅ Constants & thresholds
 │   ├── Resource.kt                # ✅ Resource wrapper
 │   ├── ImageUtils.kt              # ✅ Image processing
+│   ├── FaceAlignmentUtils.kt      # ✅ Face alignment (v2.6.0)
 │   ├── FaceRecognitionHelper.kt   # ✅ MobileFaceNet TFLite
 │   └── EmbeddingStorage.kt        # ✅ Local embedding cache
 ├── data/
@@ -360,5 +394,5 @@ Untuk detail lebih lengkap, lihat **ANDROID_GUIDE.md**.
 
 ---
 
-**Last Updated**: November 30, 2025
-**Version**: 2.4.0 (Production Deployment - Qword Hosting)
+**Last Updated**: December 3, 2025
+**Version**: 2.6.0 (Face Alignment for Improved Recognition)

@@ -10,8 +10,25 @@
 - **Offline Support**: Matching tanpa internet setelah sync
 - **Dynamic Sync**: Threshold sync ulang saat klik "Coba Lagi"
 
+### Face Alignment (v2.6.0)
+**Meningkatkan akurasi ~3% dengan alignment berbasis posisi mata**
+
+- **ML Kit Landmarks**: Deteksi posisi mata kiri dan kanan
+- **Rotasi Wajah**: Wajah dirotasi agar mata horizontal
+- **Landmark-based Crop**: Crop konsisten berdasarkan jarak mata (2.5x eye distance)
+- **Output**: 112x112 RGB (sesuai input MobileFaceNet)
+- **Eye Position**: Mata diposisikan di 35% dari atas output
+
+**Test Results:**
+| Method | Similarity |
+|--------|------------|
+| Tanpa Alignment | 76.0% |
+| Dengan Alignment | **78.9%** |
+
+**File:** `android/app/src/main/java/com/absensi/util/FaceAlignmentUtils.kt`
+
 ### Multi-Pose Registration (5 Foto)
-Registrasi wajah menggunakan 5 foto dari sudut berbeda:
+Registrasi wajah menggunakan 5 foto dari sudut berbeda untuk akurasi lebih baik:
 
 | Pose | Deskripsi | Arrow Indicator |
 |------|-----------|-----------------|
@@ -20,6 +37,8 @@ Registrasi wajah menggunakan 5 foto dari sudut berbeda:
 | 3 | Tengok sedikit ke KANAN | Arrow right (animate right) |
 | 4 | ANGKAT dagu sedikit | Arrow up (animate up) |
 | 5 | TUNDUKKAN kepala sedikit | Arrow down (animate down) |
+
+**Multi-Embedding Matching**: Saat absen, wajah dibandingkan dengan **semua 5 embeddings** dari setiap user. Distance terbaik dari 5 perbandingan digunakan untuk matching, meningkatkan akurasi pengenalan wajah dari berbagai angle.
 
 ### Visual Feedback System
 
@@ -192,12 +211,24 @@ Log setiap percobaan face matching untuk debugging:
 - **Matched User**: Nama user yang di-match (jika sukses)
 - **Similarity**: Persentase kemiripan terbaik
 - **Threshold**: Nilai threshold yang digunakan
+- **Embeddings**: Jumlah embeddings yang digunakan per user (1-5)
 - **Detail View**: Klik row untuk lihat semua perbandingan (ranking by similarity)
+
+**Detail Dialog Columns**:
+| Column | Description |
+|--------|-------------|
+| # | Ranking (1 = paling mirip) |
+| Nama | Nama user |
+| Distance | Euclidean distance (lower = better) |
+| Similarity | Persentase kemiripan |
+| Embeddings | Jumlah embeddings yang dibandingkan |
+| Match? | ✓ jika di bawah threshold |
 
 **Use Cases**:
 - Debug kenapa user tidak dikenali
 - Lihat ranking similarity ke semua user
 - Bandingkan threshold yang berbeda
+- Verifikasi multi-embedding digunakan (kolom Embeddings = 5)
 - Audit setiap percobaan absensi
 
 ---
@@ -474,5 +505,5 @@ FACE_SIMILARITY_THRESHOLD = 0.6  // Server-side face matching threshold
 
 ---
 
-**Last Updated**: November 27, 2025
-**Version**: 2.3.0 (Security Hardening)
+**Last Updated**: December 3, 2025
+**Version**: 2.6.0 (Face Alignment for Improved Recognition)

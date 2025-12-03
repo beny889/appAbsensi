@@ -13,6 +13,7 @@ Sistem absensi dengan **on-device face recognition** menggunakan MobileFaceNet y
 - **Multi-pose registration** - 5 foto dari berbagai sudut untuk akurasi lebih baik
 - **On-device matching** - Pencocokan wajah langsung di HP, tidak perlu internet
 - **Dynamic Threshold Sync** - Sync threshold dari backend saat "Coba Lagi"
+- **Face Alignment (v2.6.0)** - Rotasi wajah berdasarkan posisi mata untuk akurasi +3%
 
 ### Visual Feedback (Android)
 - **Corner Frame Indicator** - Warna berubah sesuai status deteksi wajah:
@@ -41,6 +42,12 @@ Sistem absensi dengan **on-device face recognition** menggunakan MobileFaceNet y
 - **Settings Management** - Konfigurasi face threshold dan ganti password
 - **Collapsible Reports Menu** - Menu laporan dengan sub-menu collapse
 - **Face Match Logs** - Log setiap percobaan face matching untuk audit
+  - Tampilkan `embeddingsCount` per user untuk verifikasi multi-embedding
+- **UI Improvements** (v2.5.0)
+  - Footer "PT. Sample Corp" di sidebar
+  - Logo perusahaan di header
+  - Pagination untuk tabel besar
+  - Kolom "No" untuk nomor urut
 
 ### Production Ready
 - **Debug Code Removed** - Semua Log.d dan console.log sudah dihapus
@@ -48,11 +55,14 @@ Sistem absensi dengan **on-device face recognition** menggunakan MobileFaceNet y
 - **Clean UI** - Visual debug elements sudah dihapus
 - **New App Logo** - Logo fingerprint biru gradient dengan background putih
 
-### Security Features (v2.3.0)
-- **Rate Limiting** - Proteksi brute force: 5 login attempts/minute
+### Security Features (v2.3.0+)
+- **Rate Limiting** - Proteksi brute force dengan @nestjs/throttler
+  - Global: 3 req/sec, 20 req/min, 100 req/hour
+  - Login: Max 5 attempts/minute (stricter)
 - **Protected Register** - Hanya ADMIN yang bisa register user baru
 - **Strong JWT** - Secret 64+ karakter, expiration 24 jam
 - **Password Policy** - Minimal 8 karakter, huruf besar/kecil, angka
+- **CORS from ENV** - Origin dikelola via environment variable
 
 ## Quick Start
 
@@ -247,6 +257,7 @@ POST   /api/auth/change-password          # Change admin password
 - `bestDistance` / `bestSimilarity` - Jarak/similarity terbaik
 - `totalUsersCompared` - Jumlah user yang dibandingkan
 - `allMatches` - JSON detail semua perbandingan (ranking)
+  - Termasuk `embeddingsCount` per user untuk debugging multi-embedding
 
 ## Android Structure
 
@@ -338,5 +349,5 @@ Private - Internal Use Only
 
 ---
 
-**Last Updated**: November 27, 2025
-**Version**: 2.3.0 (Security Hardening, Login UI Redesign)
+**Last Updated**: December 3, 2025
+**Version**: 2.6.0 (Face Alignment for Improved Recognition)

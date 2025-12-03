@@ -29,6 +29,25 @@ Panduan lengkap untuk Android app sistem absensi dengan **on-device face recogni
 - **Output**: 192-dimensional embedding vector
 - **Matching**: Euclidean distance (threshold: 0.7)
 
+### Face Alignment (v2.6.0)
+**Meningkatkan akurasi ~3% dengan alignment berbasis posisi mata**
+
+| Step | Deskripsi |
+|------|-----------|
+| 1 | ML Kit deteksi LEFT_EYE dan RIGHT_EYE landmarks |
+| 2 | Hitung sudut kemiringan wajah dari posisi mata |
+| 3 | Rotasi gambar untuk membuat mata horizontal |
+| 4 | Crop berdasarkan jarak mata (2.5x eye distance) |
+| 5 | Posisi mata di 35% dari atas output |
+| 6 | Resize ke 112x112 untuk MobileFaceNet |
+
+**Parameters:**
+```kotlin
+OUTPUT_SIZE = 112           // MobileFaceNet input size
+EYE_Y_RATIO = 0.35f         // Posisi mata (35% dari atas)
+FACE_WIDTH_RATIO = 2.5f     // Crop = 2.5x eye distance
+```
+
 ### Key Files
 ```
 android/app/src/main/
@@ -37,6 +56,9 @@ android/app/src/main/
 ├── java/com/absensi/
 │   ├── ml/
 │   │   └── FaceRecognitionHelper.kt # MobileFaceNet wrapper
+│   ├── util/
+│   │   ├── FaceAlignmentUtils.kt    # Face alignment (v2.6.0)
+│   │   └── ImageUtils.kt            # Image processing
 │   ├── data/local/
 │   │   └── EmbeddingStorage.kt      # Local embedding cache
 │   ├── presentation/
@@ -342,5 +364,5 @@ dependencies {
 
 ---
 
-**Last Updated**: November 30, 2025
-**Version**: 2.4.0 (Production Deployment - Qword Hosting)
+**Last Updated**: December 3, 2025
+**Version**: 2.6.0 (Face Alignment for Improved Recognition)

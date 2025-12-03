@@ -31,8 +31,11 @@ import com.absensi.util.Constants
 import com.absensi.util.ImageUtils
 import com.absensi.util.TokenManager
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
+import com.google.mlkit.vision.face.FaceLandmark
+import com.absensi.util.FaceAlignmentUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -87,11 +90,10 @@ class CameraActivity : AppCompatActivity() {
     private lateinit var embeddingStorage: EmbeddingStorage
     private var isOnDeviceReady = false
 
-    // ML Kit Face Detector - Increased sensitivity for better accuracy
+    // ML Kit Face Detector - With landmarks for face alignment
     private val faceDetectorOptions = FaceDetectorOptions.Builder()
         .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-        .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE)
-        .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
+        .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)  // Enable for face alignment
         .setMinFaceSize(0.35f)  // Increased from 0.15f - face must be closer
         .build()
 
@@ -450,15 +452,25 @@ class CameraActivity : AppCompatActivity() {
                             // For registration mode, convert image to base64 BEFORE countdown
                             if (activityMode == MODE_REGISTRATION) {
                                 try {
-                                    val faceImageBase64 = ImageUtils.imageProxyToBase64(imageProxy)
+                                    // Convert to bitmap and align face
+                                    val fullBitmap = ImageUtils.imageProxyToBitmap(imageProxy)
+                                    val alignedFace = FaceAlignmentUtils.alignAndCropFace(fullBitmap, face)
+                                        ?: throw Exception("Face alignment failed")
+                                    val faceImageBase64 = ImageUtils.bitmapToBase64(alignedFace)
+
+                                    // Recycle full bitmap after alignment
+                                    if (alignedFace != fullBitmap) {
+                                        fullBitmap.recycle()
+                                    }
+
                                     runOnUiThread {
                                         startCaptureCountdown {
-                                            // Use pre-captured image
+                                            // Use aligned face image
                                             processRegistration(faceImageBase64)
                                         }
                                     }
                                 } catch (e: Exception) {
-                                    Log.e(TAG, "Error converting image", e)
+                                    Log.e(TAG, "Error converting/aligning image", e)
                                     runOnUiThread {
                                         Toast.makeText(
                                             this,
@@ -471,17 +483,27 @@ class CameraActivity : AppCompatActivity() {
                                     }
                                 }
                             } else {
-                                // For attendance mode, also capture face image
+                                // For attendance mode, align and crop face
                                 try {
-                                    val faceImageBase64 = ImageUtils.imageProxyToBase64(imageProxy)
+                                    // Convert to bitmap and align face
+                                    val fullBitmap = ImageUtils.imageProxyToBitmap(imageProxy)
+                                    val alignedFace = FaceAlignmentUtils.alignAndCropFace(fullBitmap, face)
+                                        ?: throw Exception("Face alignment failed")
+                                    val faceImageBase64 = ImageUtils.bitmapToBase64(alignedFace)
+
+                                    // Recycle full bitmap after alignment
+                                    if (alignedFace != fullBitmap) {
+                                        fullBitmap.recycle()
+                                    }
+
                                     runOnUiThread {
                                         startCaptureCountdown {
-                                            // Use captured image for face recognition
+                                            // Use aligned face for recognition
                                             processAttendance(faceImageBase64)
                                         }
                                     }
                                 } catch (e: Exception) {
-                                    Log.e(TAG, "Error converting image for attendance", e)
+                                    Log.e(TAG, "Error converting/aligning image for attendance", e)
                                     runOnUiThread {
                                         Toast.makeText(
                                             this,
@@ -674,7 +696,8 @@ class CameraActivity : AppCompatActivity() {
                         append("\"name\":\"${match.name}\",")
                         append("\"distance\":${match.distance},")
                         append("\"similarity\":${match.similarity},")
-                        append("\"isMatch\":${match.isMatch}")
+                        append("\"isMatch\":${match.isMatch},")
+                        append("\"embeddingsCount\":${match.embeddingsCount}")
                         append("}")
                     }
                     append("]")

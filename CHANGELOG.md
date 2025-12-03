@@ -1,5 +1,139 @@
 # 📝 Changelog - Sistem Absensi
 
+## [2.6.0] Face Alignment for Improved Recognition (2025-12-03)
+
+### 🎯 Major Feature: Face Alignment
+
+#### ✅ Face Alignment dengan ML Kit Landmarks
+**Akurasi face recognition meningkat ~3% dengan face alignment berbasis posisi mata**
+
+- ✅ **ML Kit Landmarks Enabled**: `LANDMARK_MODE_ALL` untuk deteksi posisi mata
+- ✅ **Face Alignment**: Rotasi wajah agar mata horizontal sebelum embedding
+- ✅ **Landmark-based Crop**: Crop wajah konsisten berdasarkan jarak mata
+- ✅ **File Baru**: `FaceAlignmentUtils.kt` untuk logic alignment
+- Location: `android/app/src/main/java/com/absensi/util/FaceAlignmentUtils.kt`
+- Location: `android/app/src/main/java/com/absensi/presentation/camera/CameraActivity.kt`
+
+**Test Results:**
+| Method | Similarity |
+|--------|------------|
+| Tanpa Alignment | 76.0% |
+| Dengan Alignment | **78.9%** |
+
+**Cara Kerja:**
+1. Deteksi posisi mata kiri dan kanan dari ML Kit
+2. Hitung sudut kemiringan wajah (angle between eyes)
+3. Rotasi gambar untuk membuat mata horizontal
+4. Crop wajah berdasarkan jarak mata (2.5x eye distance)
+5. Posisi mata di 35% dari atas output
+6. Resize ke 112x112 untuk MobileFaceNet
+
+**Parameter Alignment:**
+```kotlin
+OUTPUT_SIZE = 112           // MobileFaceNet input size
+EYE_Y_RATIO = 0.35f         // Posisi mata di output (35% dari atas)
+FACE_WIDTH_RATIO = 2.5f     // Crop size = 2.5x eye distance
+```
+
+**Diterapkan ke:**
+- ✅ Registrasi wajah (5 foto)
+- ✅ Absensi masuk (CHECK_IN)
+- ✅ Absensi pulang (CHECK_OUT)
+
+---
+
+## [2.5.0] Multi-Embedding Improvements & UI Enhancements (2025-12-02)
+
+### 🎯 Multi-Embedding Face Recognition Fix
+
+#### ✅ embeddingsCount Properly Logged
+**Face Match Logs sekarang menampilkan jumlah embeddings yang benar (5, bukan 1)**
+
+- ✅ **UserMatchInfo Updated**: Added `embeddingsCount` field to data class
+- ✅ **JSON Output Fixed**: `allMatchesJson` sekarang include `embeddingsCount`
+- ✅ **Accurate Tracking**: Web Admin Face Match Logs menampilkan jumlah embeddings per user
+- Location: `android/*/ml/FaceRecognitionHelper.kt`
+- Location: `android/*/presentation/camera/CameraActivity.kt`
+
+**Before:**
+```json
+{"name":"beny","distance":0.44,"similarity":77,"isMatch":true}
+```
+
+**After:**
+```json
+{"name":"beny","distance":0.44,"similarity":77,"isMatch":true,"embeddingsCount":5}
+```
+
+---
+
+### 🎨 Web Admin UI Improvements
+
+#### ✅ Login Page Footer
+- Added copyright footer: "© 2025 Absensi System • v2.4.0"
+- Added "Created by Beny" text
+- Location: `web-admin/src/pages/Auth/Login.tsx`
+
+#### ✅ Logo in Sidebar
+- Added logo.png next to "Absensi Admin" title
+- Circular style with 32x32px size
+- Location: `web-admin/src/components/layout/Layout.tsx`
+
+#### ✅ Pagination on Employees Table
+- Added TablePagination component
+- Default 10 rows per page (options: 10, 25, 50)
+- Location: `web-admin/src/pages/Employees/Employees.tsx`
+
+#### ✅ "No" Column Added to Tables
+- Employees table
+- Attendance table
+- Pending Registrations table
+- Face Match Logs table
+- Row number calculated as: `page * rowsPerPage + index + 1`
+
+#### ✅ Best Similarity Format Fix
+- Fixed display from "7500%" to "75%"
+- Issue: `bestSimilarity` was already percentage, code was multiplying by 100 again
+- Location: `web-admin/src/pages/FaceMatchLogs/FaceMatchLogs.tsx`
+
+---
+
+### ⚡ Rate Limiting Improvements
+
+#### ✅ Increased Throttling Limits
+**Rate limiting yang lebih longgar untuk normal usage:**
+
+| Limit | Before | After |
+|-------|--------|-------|
+| Short (per second) | 3 | 10 |
+| Medium (per minute) | 20 | 100 |
+| Long (per hour) | 100 | 500 |
+
+- Location: `backend/src/app.module.ts`
+
+---
+
+### 📚 Documentation Updates
+
+#### ✅ Vite Build Environment
+- Documented priority of `.env.production` vs `.env.testing`
+- Added build commands per environment
+- Added verification steps before deploy
+
+#### ✅ Environment URLs
+- Documented correct API URLs for each environment
+- Production: `https://absen.bravenozora.com/api`
+- Testing: `https://testing.bravenozora.com/api`
+
+#### ✅ Deployment Guide
+- Step-by-step guide from testing to production
+- Included verification checklist
+- Added rollback instructions
+
+- Location: `CLAUDE.md`
+
+---
+
 ## [2.3.0] Security Hardening & Login UI (2025-11-27)
 
 ### 🔐 Security Audit & Hardening
