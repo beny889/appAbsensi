@@ -193,7 +193,8 @@ class FaceRecognitionHelper(private val context: Context) {
         val name: String,
         val distance: Float,
         val similarity: Int,  // percentage (0-100)
-        val isMatch: Boolean
+        val isMatch: Boolean,
+        val embeddingsCount: Int = 1  // Number of embeddings used for this user
     )
 
     data class MatchResultWithLog(
@@ -289,7 +290,8 @@ class FaceRecognitionHelper(private val context: Context) {
                 name = userName,
                 distance = userBestDistance,
                 similarity = similarity,
-                isMatch = isMatch
+                isMatch = isMatch,
+                embeddingsCount = embeddingsList.size
             ))
 
             if (userBestDistance < bestDistance) {

@@ -126,22 +126,23 @@ APK location: `android-local/app/build/outputs/apk/debug/app-debug.apk`
 
 ## Android Local Testing
 
+### Untuk Physical Device (Recommended)
+Menggunakan **ADB Reverse** - tidak perlu edit IP address!
+
+1. Hubungkan HP via USB
+2. Jalankan `scripts/start-local.bat` (sudah include adb reverse)
+3. Build dan install APK: `scripts/build-local-apk.bat`
+
+**Manual ADB Reverse:**
+```bash
+adb reverse tcp:3001 tcp:3001
+```
+
+Ini membuat `localhost:3001` di Android app mengarah ke `localhost:3001` di komputer.
+
 ### Untuk Emulator
 IP `10.0.2.2` di emulator Android = `localhost` di host machine.
-Sudah dikonfigurasi di `android-local/`.
-
-### Untuk Physical Device
-1. Pastikan HP dan komputer di jaringan WiFi yang sama
-2. Cari IP komputer: `ipconfig` (Windows)
-3. Edit `android-local/.../Constants.kt`:
-   ```kotlin
-   const val BASE_URL = "http://192.168.x.x:3001/api/"
-   ```
-4. Edit `android-local/.../RetrofitClient.kt`:
-   ```kotlin
-   private const val BASE_URL = "http://192.168.x.x:3001/api/"
-   ```
-5. Rebuild APK
+Atau gunakan adb reverse seperti physical device.
 
 ## Deployment Workflow
 
