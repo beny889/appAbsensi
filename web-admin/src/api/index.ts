@@ -12,6 +12,11 @@ import {
   Department,
   CreateDepartmentDto,
   UpdateDepartmentDto,
+  Branch,
+  CreateBranchDto,
+  UpdateBranchDto,
+  DeviceBinding,
+  CreateBindingDto,
 } from '@/types';
 
 // Auth API
@@ -72,9 +77,9 @@ export const reportsApi = {
     return response.data;
   },
 
-  getDailyReport: async (date: string): Promise<DailyReport> => {
+  getDailyReport: async (date: string, branchId?: string): Promise<DailyReport> => {
     const response = await apiClient.get<DailyReport>('/reports/daily', {
-      params: { date },
+      params: { date, branchId },
     });
     return response.data;
   },
@@ -86,9 +91,9 @@ export const reportsApi = {
     return response.data;
   },
 
-  getMonthlyGrid: async (year: number, month: number): Promise<MonthlyAttendanceGrid> => {
+  getMonthlyGrid: async (year: number, month: number, branchId?: string): Promise<MonthlyAttendanceGrid> => {
     const response = await apiClient.get<MonthlyAttendanceGrid>('/reports/monthly-grid', {
-      params: { year, month },
+      params: { year, month, branchId },
     });
     return response.data;
   },
@@ -96,10 +101,11 @@ export const reportsApi = {
   getEmployeeDetailReport: async (
     userId: string,
     startDate: string,
-    endDate: string
+    endDate: string,
+    branchId?: string
   ): Promise<import('@/types').EmployeeDetailReport> => {
     const response = await apiClient.get(`/reports/employee/${userId}/details`, {
-      params: { startDate, endDate },
+      params: { startDate, endDate, branchId },
     });
     return response.data;
   },
@@ -277,6 +283,61 @@ export const departmentApi = {
   },
 };
 
+// Branch API
+export const branchApi = {
+  getAll: async (): Promise<Branch[]> => {
+    const response = await apiClient.get<Branch[]>('/branches');
+    return response.data;
+  },
+
+  getById: async (id: string): Promise<Branch> => {
+    const response = await apiClient.get<Branch>(`/branches/${id}`);
+    return response.data;
+  },
+
+  create: async (data: CreateBranchDto): Promise<Branch> => {
+    const response = await apiClient.post<Branch>('/branches', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: UpdateBranchDto): Promise<Branch> => {
+    const response = await apiClient.put<Branch>(`/branches/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/branches/${id}`);
+  },
+};
+
+// Device Binding API
+export const deviceBindingApi = {
+  getByBranch: async (branchId: string): Promise<DeviceBinding[]> => {
+    const response = await apiClient.get<DeviceBinding[]>(`/device-bindings/branch/${branchId}`);
+    return response.data;
+  },
+
+  create: async (data: CreateBindingDto): Promise<DeviceBinding> => {
+    const response = await apiClient.post<DeviceBinding>('/device-bindings', data);
+    return response.data;
+  },
+
+  toggle: async (id: string, isActive: boolean): Promise<{ message: string; isActive: boolean }> => {
+    const response = await apiClient.patch<{ message: string; isActive: boolean }>(
+      `/device-bindings/${id}/toggle`,
+      { isActive }
+    );
+    return response.data;
+  },
+
+  delete: async (id: string, password: string): Promise<{ message: string }> => {
+    const response = await apiClient.delete<{ message: string }>(`/device-bindings/${id}`, {
+      data: { password },
+    });
+    return response.data;
+  },
+};
+
 // Holiday Types
 export interface HolidayUser {
   id: string;
@@ -293,6 +354,12 @@ export interface Holiday {
   name: string;
   description?: string;
   isGlobal: boolean;
+  branchId?: string;
+  branch?: {
+    id: string;
+    name: string;
+    code: string;
+  };
   users: HolidayUser[];
   createdAt: string;
   updatedAt: string;
@@ -445,6 +512,39 @@ export const settingsApi = {
 
   updateProfile: async (data: UpdateProfileDto): Promise<UserProfile> => {
     const response = await apiClient.patch<UserProfile>('/auth/profile', data);
+    return response.data;
+  },
+};
+
+// Admin Users API
+export const adminUsersApi = {
+  getAll: async (): Promise<import('@/types').AdminUser[]> => {
+    const response = await apiClient.get('/admin-users');
+    return response.data;
+  },
+
+  getById: async (id: string): Promise<import('@/types').AdminUser> => {
+    const response = await apiClient.get(`/admin-users/${id}`);
+    return response.data;
+  },
+
+  getAvailableMenus: async (): Promise<import('@/types').MenuOption[]> => {
+    const response = await apiClient.get('/admin-users/menus');
+    return response.data;
+  },
+
+  create: async (data: import('@/types').CreateAdminDto): Promise<import('@/types').AdminUser> => {
+    const response = await apiClient.post('/admin-users', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: import('@/types').UpdateAdminDto): Promise<import('@/types').AdminUser> => {
+    const response = await apiClient.put(`/admin-users/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/admin-users/${id}`);
     return response.data;
   },
 };

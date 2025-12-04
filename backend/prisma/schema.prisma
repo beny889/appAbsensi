@@ -12,7 +12,9 @@ datasource db {
 
 // Enums
 enum Role {
-  ADMIN
+  SUPER_ADMIN    // Akses SEMUA cabang
+  BRANCH_ADMIN   // Akses cabang tertentu saja
+  ADMIN          // Legacy - treat as BRANCH_ADMIN
   EMPLOYEE
 }
 
@@ -27,6 +29,73 @@ enum RegistrationStatus {
   REJECTED
 }
 
+// ============= BRANCH MODEL =============
+model Branch {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique  // Kode singkat: "JKT", "SBY", "BDG"
+  address     String?  @db.Text
+  city        String?
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users             User[]
+  departments       Department[]
+  faceRegistrations FaceRegistration[]
+  adminAccess       AdminBranchAccess[]
+  deviceBindings    DeviceBinding[]
+  holidays          Holiday[]
+  faceMatchAttempts FaceMatchAttempt[]
+
+  @@map("branches")
+  @@index([code])
+  @@index([isActive])
+}
+
+// ============= DEVICE BINDING (Kode Binding untuk Device) =============
+model DeviceBinding {
+  id          String    @id @default(cuid())
+  code        String    @unique  // 5 uppercase letters: "ABCDE"
+  branchId    String
+  deviceName  String?   // Set when device uses the code
+  isActive    Boolean   @default(true)
+  usedAt      DateTime? // Timestamp when code was used
+  createdBy   String    // User ID of admin who created
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  branch      Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  creator     User      @relation("BindingCreator", fields: [createdBy], references: [id])
+
+  @@map("device_bindings")
+  @@index([code])
+  @@index([branchId])
+  @@index([isActive])
+}
+
+// ============= ADMIN BRANCH ACCESS (Multi-branch admin) =============
+model AdminBranchAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  branchId  String
+  isDefault Boolean  @default(false)  // Default branch for viewing
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, branchId])
+  @@map("admin_branch_access")
+  @@index([userId])
+  @@index([branchId])
+}
+
 // Models
 model User {
   id            String       @id @default(cuid())
@@ -37,6 +106,7 @@ model User {
   phone         String?
   position      String?
   departmentId  String?
+  branchId      String?      // Branch assignment
 
   // Face recognition data (for EMPLOYEE only)
   faceEmbedding  String?      @db.LongText  // Single embedding (legacy/backward compatibility)
@@ -46,6 +116,10 @@ model User {
   // Status
   isActive      Boolean      @default(true)
 
+  // Admin permissions (JSON array of menu keys, null = all access for SUPER_ADMIN)
+  allowedMenus  String?      @db.Text  // e.g. ["dashboard","employees","attendance"]
+  defaultBranchId String?    // Default branch to view for BRANCH_ADMIN
+
   // Employment
   startDate     DateTime?    // Tanggal mulai bekerja
 
@@ -54,13 +128,17 @@ model User {
   updatedAt     DateTime     @updatedAt
 
   // Relations
-  attendances      Attendance[]
-  faceRegistration FaceRegistration?
-  department       Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  holidays         HolidayUser[]
+  attendances       Attendance[]
+  faceRegistration  FaceRegistration?
+  department        Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  branch            Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  holidays          HolidayUser[]
+  adminBranchAccess AdminBranchAccess[]
+  createdBindings   DeviceBinding[]    @relation("BindingCreator")
 
   @@map("users")
   @@index([departmentId])
+  @@index([branchId])
 }
 
 model Attendance {
@@ -114,6 +192,7 @@ model FaceRegistration {
   faceEmbeddings   String?             @db.LongText  // Multiple embeddings as JSON array
   faceImageUrl     String?             @db.Text
   status           RegistrationStatus  @default(PENDING)
+  branchId         String?             // Branch where registration was submitted
 
   // Admin review
   reviewedBy      String?
@@ -123,6 +202,7 @@ model FaceRegistration {
   // Link to created user (if approved)
   userId          String?             @unique
   user            User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  branch          Branch?             @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   // Timestamps
   createdAt       DateTime            @default(now())
@@ -131,12 +211,14 @@ model FaceRegistration {
   @@map("face_registrations")
   @@index([status])
   @@index([createdAt])
+  @@index([branchId])
 }
 
 model Department {
   id          String   @id @default(cuid())
-  name        String   @unique
+  name        String
   description String?  @db.Text
+  branchId    String?  // Branch assignment
   isActive    Boolean  @default(true)
 
   // Timestamps
@@ -146,9 +228,12 @@ model Department {
   // Relations
   users         User[]
   workSchedules WorkSchedule[]
+  branch        Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   @@map("departments")
+  @@unique([name, branchId])  // Nama sama boleh di branch berbeda
   @@index([name])
+  @@index([branchId])
 }
 
 model WorkSchedule {
@@ -176,6 +261,7 @@ model Holiday {
   name        String
   description String?  @db.Text
   isGlobal    Boolean  @default(true)  // true = untuk semua karyawan, false = untuk karyawan tertentu
+  branchId    String?  // Branch assignment (null = all branches for SUPER_ADMIN view)
 
   // Timestamps
   createdAt   DateTime @default(now())
@@ -183,9 +269,11 @@ model Holiday {
 
   // Relations
   users       HolidayUser[]
+  branch      Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   @@map("holidays")
   @@index([date])
+  @@index([branchId])
 }
 
 // Junction table for Holiday-User many-to-many relation
@@ -211,6 +299,7 @@ model FaceMatchAttempt {
   // Attempt info
   attemptType        String   // "CHECK_IN" | "CHECK_OUT"
   success            Boolean  // true if match found
+  branchId           String?  // Branch where attempt was made
 
   // Matched user (if success)
   matchedUserId      String?
@@ -228,7 +317,11 @@ model FaceMatchAttempt {
   // Timestamps
   createdAt          DateTime @default(now())
 
+  // Relations
+  branch             Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
   @@map("face_match_attempts")
   @@index([createdAt])
   @@index([success])
+  @@index([branchId])
 }

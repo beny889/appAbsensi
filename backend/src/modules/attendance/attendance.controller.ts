@@ -119,7 +119,7 @@ export class AttendanceController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('user/:userId')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async getUserAttendances(
     @Param('userId') userId: string,
     @Query('startDate') startDate?: string,
@@ -134,20 +134,22 @@ export class AttendanceController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('all')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async getAllAttendances(
+    @CurrentUser() user: any,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
     return this.attendanceService.getAllAttendances(
       startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined,
+      user.id,
     );
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async deleteAttendance(@Param('id') id: string) {
     return this.attendanceService.delete(id);
   }
@@ -166,7 +168,7 @@ export class AttendanceController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('face-match-attempts')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async getFaceMatchAttempts(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -182,7 +184,7 @@ export class AttendanceController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('face-match-attempts/:id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async getFaceMatchAttemptById(@Param('id') id: string) {
     return this.attendanceService.getFaceMatchAttemptById(id);
   }
@@ -192,7 +194,7 @@ export class AttendanceController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Delete('face-match-attempts/cleanup')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async deleteOldAttempts(@Query('daysOld') daysOld?: string) {
     return this.attendanceService.deleteOldAttempts(
       daysOld ? parseInt(daysOld) : 30,

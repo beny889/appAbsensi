@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -14,12 +14,14 @@ import {
   TableHead,
   TableRow,
   Tooltip,
+  MenuItem,
 } from '@mui/material';
 import {
   PictureAsPdf as PdfIcon,
   Visibility as PreviewIcon,
 } from '@mui/icons-material';
-import { reportsApi, MonthlyAttendanceGrid, EmployeeGridData } from '@/api';
+import { reportsApi, branchApi, authApi, MonthlyAttendanceGrid, EmployeeGridData } from '@/api';
+import { Branch } from '@/types';
 import { usePageTitle } from '@/contexts/PageTitleContext';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
@@ -33,13 +35,22 @@ const MONTH_NAMES = [
 const DAY_NAMES = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
 export default function MonthlyReports() {
+  const isSuperAdmin = authApi.getUserRole() === 'SUPER_ADMIN';
   const currentDate = new Date();
   const [year, setYear] = useState(currentDate.getFullYear().toString());
   const [month, setMonth] = useState((currentDate.getMonth() + 1).toString());
   const [loading, setLoading] = useState(false);
   const [gridData, setGridData] = useState<MonthlyAttendanceGrid | null>(null);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState('');
 
   usePageTitle('Laporan Bulanan', 'Preview dan download laporan kehadiran karyawan per bulan');
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      branchApi.getAll().then(setBranches).catch(() => {});
+    }
+  }, [isSuperAdmin]);
 
   const loadPreview = async () => {
     if (!year || !month) {
@@ -49,7 +60,7 @@ export default function MonthlyReports() {
 
     setLoading(true);
     try {
-      const data = await reportsApi.getMonthlyGrid(parseInt(year), parseInt(month));
+      const data = await reportsApi.getMonthlyGrid(parseInt(year), parseInt(month), selectedBranchId || undefined);
       setGridData(data);
       if (data.employees.length === 0) {
         toast.error('Tidak ada data karyawan untuk periode ini');
@@ -228,7 +239,7 @@ export default function MonthlyReports() {
     <Box>
       <Paper sx={{ p: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={3}>
+          <Grid item xs={12} sm={isSuperAdmin ? 2 : 3}>
             <TextField
               fullWidth
               type="number"
@@ -242,7 +253,7 @@ export default function MonthlyReports() {
               size="small"
             />
           </Grid>
-          <Grid item xs={12} sm={3}>
+          <Grid item xs={12} sm={isSuperAdmin ? 2 : 3}>
             <TextField
               fullWidth
               select
@@ -263,6 +274,23 @@ export default function MonthlyReports() {
               ))}
             </TextField>
           </Grid>
+          {isSuperAdmin && (
+            <Grid item xs={12} sm={2}>
+              <TextField
+                fullWidth
+                select
+                label="Cabang"
+                value={selectedBranchId}
+                onChange={(e) => { setSelectedBranchId(e.target.value); setGridData(null); }}
+                size="small"
+              >
+                <MenuItem value="">Semua Cabang</MenuItem>
+                {branches.map((b) => (
+                  <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+          )}
           <Grid item xs={12} sm={3}>
             <Button
               fullWidth

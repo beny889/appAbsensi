@@ -26,13 +26,14 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { Person as PersonIcon, Delete as DeleteIcon, Search as SearchIcon, Today as TodayIcon, Clear as ClearIcon } from '@mui/icons-material';
-import { attendanceApi } from '@/api';
+import { attendanceApi, authApi } from '@/api';
 import { Attendance as AttendanceType } from '@/types';
 import { usePageTitle } from '@/contexts/PageTitleContext';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
 export default function Attendance() {
+  const isSuperAdmin = authApi.getUserRole() === 'SUPER_ADMIN';
   const [attendances, setAttendances] = useState<AttendanceType[]>([]);
   const [loading, setLoading] = useState(true);
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -226,6 +227,7 @@ export default function Attendance() {
               <TableCell align="center" sx={{ width: 60 }}><strong>No</strong></TableCell>
               <TableCell><strong>Foto</strong></TableCell>
               <TableCell><strong>Karyawan</strong></TableCell>
+              {isSuperAdmin && <TableCell><strong>Cabang</strong></TableCell>}
               <TableCell><strong>Tipe</strong></TableCell>
               <TableCell><strong>Status</strong></TableCell>
               <TableCell><strong>Waktu</strong></TableCell>
@@ -238,7 +240,7 @@ export default function Attendance() {
           <TableBody>
             {paginatedAttendances.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={isSuperAdmin ? 11 : 10} align="center" sx={{ py: 4 }}>
                   <Typography variant="body2" color="textSecondary">
                     {attendances.length === 0
                       ? 'Belum ada data absensi'
@@ -286,6 +288,13 @@ export default function Attendance() {
                     )}
                   </TableCell>
                   <TableCell>{attendance.user?.name || '-'}</TableCell>
+                  {isSuperAdmin && (
+                    <TableCell>
+                      <Typography variant="body2">
+                        {attendance.user?.branch?.name || '-'}
+                      </Typography>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Chip
                       label={attendance.type === 'CHECK_IN' ? 'Masuk' : 'Pulang'}

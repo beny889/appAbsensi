@@ -78,12 +78,14 @@ class FaceRegistrationRepository {
      * @param name User's name
      * @param faceEmbeddings List of JSON embedding strings (5 embeddings from different angles)
      * @param faceImagesBase64 List of base64 encoded face images (5 images)
+     * @param branchId Branch ID from device's selected branch (optional, for multi-branch support)
      * @return Result with FaceRegistrationResponse or error message
      */
     suspend fun submitRegistrationWithMultipleEmbeddings(
         name: String,
         faceEmbeddings: List<String>,
-        faceImagesBase64: List<String>
+        faceImagesBase64: List<String>,
+        branchId: String? = null
     ): Result<FaceRegistrationResponse> {
         return try {
 
@@ -95,7 +97,8 @@ class FaceRegistrationRepository {
                 faceEmbeddings = faceEmbeddings,
                 faceImagesBase64 = imageUrls,
                 // Also send first image as primary for display
-                faceImageUrl = imageUrls.firstOrNull()
+                faceImageUrl = imageUrls.firstOrNull(),
+                branchId = branchId
             )
 
             val response = apiService.submitFaceRegistration(request)

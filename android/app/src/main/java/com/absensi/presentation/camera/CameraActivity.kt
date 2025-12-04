@@ -1619,11 +1619,14 @@ class CameraActivity : AppCompatActivity() {
                 val singleImage = listOf(capturedImages.first())
 
                 // Use the new repository method for multiple embeddings with single image
+                // Include branchId from device's saved branch selection
+                val branchId = tokenManager.getBranchId()
                 val result = withContext(Dispatchers.IO) {
                     registrationRepository.submitRegistrationWithMultipleEmbeddings(
                         name = userName,
                         faceEmbeddings = embeddingsJson,
-                        faceImagesBase64 = singleImage  // Only 1 photo instead of 5
+                        faceImagesBase64 = singleImage,  // Only 1 photo instead of 5
+                        branchId = branchId  // Auto from device branch
                     )
                 }
 

@@ -35,6 +35,18 @@
             </intent-filter>
         </activity>
 
+        <!-- Branch Selection Activity (First Launch) -->
+        <activity
+            android:name=".presentation.branch.BranchSelectionActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <!-- Binding Error Activity (When binding is disabled) -->
+        <activity
+            android:name=".presentation.branch.BindingErrorActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <!-- Auth Activity -->
         <activity
             android:name=".presentation.auth.AuthActivity"

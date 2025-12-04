@@ -32,6 +32,28 @@ Sistem absensi dengan **on-device face recognition** menggunakan MobileFaceNet y
 - **Late/Early Detection** - Deteksi terlambat dan pulang cepat otomatis
 - **Work Schedules** - Jadwal kerja per departemen
 
+### Multi-Branch Support (v2.7.0)
+- **Branch Management** - Kelola cabang/lokasi perusahaan
+- **Branch Selection (Android)** - Pilih cabang saat pertama kali buka app (permanen)
+- **Role-Based Branch Access** - SUPER_ADMIN lihat semua, BRANCH_ADMIN lihat cabang tertentu
+- **Data Filtering** - Semua data (karyawan, absensi, departemen, dll) difilter per cabang
+- **Admin Branch Assignment** - Atur admin mana yang bisa akses cabang mana
+
+### Admin Management (v2.7.0)
+- **Admin Users CRUD** - Buat, edit, hapus akun admin
+- **Role Assignment** - SUPER_ADMIN atau BRANCH_ADMIN
+- **Menu Access Control** - Atur menu mana yang bisa diakses setiap admin
+- **Branch Access Control** - Atur cabang mana yang bisa diakses setiap admin
+- **Dynamic Sidebar** - Menu otomatis tersembunyi jika tidak punya akses
+
+### SUPER_ADMIN Enhancements (v2.7.1)
+- **Branch Column** - Kolom "Cabang" di 7 halaman data (hanya untuk SUPER_ADMIN):
+  - Employees, Attendance, Face Registration, Departments
+  - Work Schedules, Holidays, Face Match Logs
+- **Branch Filter** - Filter cabang di 3 halaman report (single-select):
+  - Daily Reports, Monthly Reports, Employee Detail Report
+- **Filtered Employee List** - Daftar karyawan difilter berdasarkan cabang yang dipilih
+
 ### Admin Features
 - **Face Registration Approval** - Review dan approve pendaftaran wajah
 - **Employee Management** - Kelola data karyawan
@@ -191,6 +213,24 @@ GET    /api/work-schedules
 POST   /api/work-schedules
 ```
 
+### Branch Management (v2.7.0)
+```
+GET    /api/branches              # List semua cabang (admin)
+GET    /api/branches/list         # List cabang aktif (public, untuk Android)
+POST   /api/branches              # Create cabang (SUPER_ADMIN only)
+PUT    /api/branches/:id          # Update cabang
+DELETE /api/branches/:id          # Delete cabang
+```
+
+### Admin Management (v2.7.0)
+```
+GET    /api/admin-users           # List semua admin (SUPER_ADMIN only)
+GET    /api/admin-users/menus     # List menu yang tersedia
+POST   /api/admin-users           # Create admin baru
+PUT    /api/admin-users/:id       # Update admin
+DELETE /api/admin-users/:id       # Delete admin
+```
+
 ### Holidays
 ```
 GET    /api/holidays              # List all holidays
@@ -216,10 +256,26 @@ POST   /api/auth/change-password          # Change admin password
 
 ## Database Schema
 
+### Branch (v2.7.0)
+- `id` - Primary key (cuid)
+- `name` - Nama cabang (unique)
+- `code` - Kode singkat cabang (unique, e.g., "JKT", "SBY")
+- `address` - Alamat lengkap
+- `city` - Kota
+- `isActive` - Status aktif/tidak
+
+### AdminBranchAccess (v2.7.0)
+- `id` - Primary key (cuid)
+- `userId` - Foreign key ke User (admin)
+- `branchId` - Foreign key ke Branch
+- `isDefault` - Cabang default untuk admin ini
+
 ### User
 - `faceEmbedding` - Single embedding (legacy, 128/192-dim)
 - `faceEmbeddings` - Multiple embeddings JSON array (5 poses)
 - `departmentId` - Foreign key ke Department
+- `branchId` - Foreign key ke Branch (v2.7.0)
+- `allowedMenus` - JSON array menu keys yang bisa diakses (v2.7.0)
 
 ### FaceRegistration
 - `faceEmbedding` - First embedding
@@ -349,5 +405,5 @@ Private - Internal Use Only
 
 ---
 
-**Last Updated**: December 3, 2025
-**Version**: 2.6.0 (Face Alignment for Improved Recognition)
+**Last Updated**: December 4, 2025
+**Version**: 2.7.1 (SUPER_ADMIN Branch Column & Filter)

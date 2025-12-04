@@ -14,6 +14,9 @@ import { WorkScheduleModule } from './modules/work-schedule/work-schedule.module
 import { DepartmentModule } from './modules/department/department.module';
 import { HolidaysModule } from './modules/holidays/holidays.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { BranchModule } from './modules/branch/branch.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { DeviceBindingModule } from './modules/device-binding/device-binding.module';
 
 @Module({
   imports: [
@@ -48,6 +51,9 @@ import { SettingsModule } from './modules/settings/settings.module';
     DepartmentModule,
     HolidaysModule,
     SettingsModule,
+    BranchModule,
+    AdminModule,
+    DeviceBindingModule,
   ],
   controllers: [AppController],
   providers: [

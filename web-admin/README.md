@@ -71,11 +71,27 @@ Project ini sudah di-deploy dan berjalan di production dengan fitur-fitur beriku
   - Sub-menu: Harian, Bulanan, Detail Karyawan
   - Auto-expand saat di halaman report
 
-- ✅ **Face Match Logs** (NEW!)
+- ✅ **Face Match Logs**
   - Log setiap percobaan face matching (sukses/gagal)
   - Detail: threshold, similarity, matched user
   - Klik row untuk lihat ranking semua perbandingan
   - Useful untuk debugging face recognition
+
+- ✅ **Multi-Branch Support** (v2.7.0)
+  - Branch management (CRUD)
+  - Branch filter untuk semua data (employees, attendance, departments)
+  - Role-based access: SUPER_ADMIN lihat semua, BRANCH_ADMIN lihat cabang tertentu
+
+- ✅ **Admin Management** (v2.7.0)
+  - Admin users CRUD (SUPER_ADMIN only)
+  - Menu access control - atur menu mana yang bisa diakses
+  - Branch access control - atur cabang mana yang bisa diakses
+  - Dynamic sidebar - menu tersembunyi jika tidak punya akses
+
+- ✅ **SUPER_ADMIN Enhancements** (v2.7.1)
+  - Kolom "Cabang" di 7 halaman data (Employees, Attendance, Face Registration, Departments, Work Schedules, Holidays, Face Match Logs)
+  - Filter cabang di 3 halaman report (Daily, Monthly, Employee Detail)
+  - Daftar karyawan difilter berdasarkan cabang yang dipilih di Employee Detail Report
 
 ## 🚀 Quick Start
 
@@ -513,5 +529,5 @@ Private - Internal Use Only
 
 ---
 
-**Last Updated**: December 2, 2025
-**Version**: 2.5.0 (Added Testing Environment Support)
+**Last Updated**: December 4, 2025
+**Version**: 2.7.1 (SUPER_ADMIN Branch Column & Filter)

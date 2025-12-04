@@ -28,11 +28,12 @@ import {
   Login as CheckInIcon,
   Logout as CheckOutIcon,
 } from '@mui/icons-material';
-import { faceMatchApi } from '@/api';
+import { faceMatchApi, authApi } from '@/api';
 import { FaceMatchAttempt, UserMatchInfo } from '@/types';
 import { usePageTitle } from '@/contexts/PageTitleContext';
 
 const FaceMatchLogs: React.FC = () => {
+  const isSuperAdmin = authApi.getUserRole() === 'SUPER_ADMIN';
   const [attempts, setAttempts] = useState<FaceMatchAttempt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -121,6 +122,7 @@ const FaceMatchLogs: React.FC = () => {
               <TableRow>
                 <TableCell align="center" sx={{ width: 60 }}>No</TableCell>
                 <TableCell>Waktu</TableCell>
+                {isSuperAdmin && <TableCell>Cabang</TableCell>}
                 <TableCell>Tipe</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Matched User</TableCell>
@@ -140,6 +142,13 @@ const FaceMatchLogs: React.FC = () => {
                     </Typography>
                   </TableCell>
                   <TableCell>{formatDateTime(attempt.createdAt)}</TableCell>
+                  {isSuperAdmin && (
+                    <TableCell>
+                      <Typography variant="body2">
+                        {attempt.branch?.name || '-'}
+                      </Typography>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Chip
                       icon={attempt.attemptType === 'CHECK_IN' ? <CheckInIcon /> : <CheckOutIcon />}
@@ -183,7 +192,7 @@ const FaceMatchLogs: React.FC = () => {
               ))}
               {attempts.length === 0 && !loading && (
                 <TableRow>
-                  <TableCell colSpan={10} align="center">
+                  <TableCell colSpan={isSuperAdmin ? 11 : 10} align="center">
                     Belum ada data face match log
                   </TableCell>
                 </TableRow>

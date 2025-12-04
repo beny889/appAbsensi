@@ -38,6 +38,18 @@ Backend API untuk sistem absensi dengan **on-device face recognition** (MobileFa
 - Dynamic settings (face threshold, dll)
 - Admin password management
 
+### Multi-Branch Support (v2.7.0)
+- Branch management (CRUD)
+- Role-based branch access (SUPER_ADMIN vs BRANCH_ADMIN)
+- Data filtering per branch (employees, attendance, departments, dll)
+- Public endpoint `/branches/list` untuk Android
+
+### Admin Management (v2.7.0)
+- Admin users CRUD (SUPER_ADMIN only)
+- Menu access control per admin
+- Branch access control per admin
+- Dynamic menu filtering based on `allowedMenus`
+
 ## Quick Start
 
 ```bash
@@ -150,9 +162,10 @@ GET    /api/attendance/today-all
 GET    /api/attendance/face-match-attempts  # Face match logs (debugging)
 DELETE /api/attendance/:id
 
-GET    /api/reports/daily
+GET    /api/reports/daily?date=YYYY-MM-DD&branchId=xxx    # branchId optional (v2.7.1)
 GET    /api/reports/monthly
-GET    /api/reports/monthly-grid
+GET    /api/reports/monthly-grid?year=YYYY&month=MM&branchId=xxx  # branchId optional (v2.7.1)
+GET    /api/reports/employee/:userId/details?startDate=X&endDate=Y&branchId=xxx  # (v2.7.1)
 GET    /api/reports/dashboard
 
 GET    /api/holidays              # List all (includes users relation)
@@ -168,9 +181,57 @@ PUT    /api/settings/similarity-threshold # Update face threshold (0.1-1.0)
 
 # Auth
 POST   /api/auth/change-password          # Change admin password
+
+# Branch Management (v2.7.0)
+GET    /api/branches              # List semua cabang
+GET    /api/branches/list         # List cabang aktif (public, untuk Android)
+POST   /api/branches              # Create cabang (SUPER_ADMIN only)
+PUT    /api/branches/:id          # Update cabang
+DELETE /api/branches/:id          # Delete cabang
+
+# Admin Management (v2.7.0)
+GET    /api/admin-users           # List semua admin (SUPER_ADMIN only)
+GET    /api/admin-users/menus     # List menu yang tersedia
+POST   /api/admin-users           # Create admin baru
+PUT    /api/admin-users/:id       # Update admin
+DELETE /api/admin-users/:id       # Delete admin
 ```
 
 ## Database Schema
+
+### Branch (v2.7.0)
+```prisma
+model Branch {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique  // e.g., "JKT", "SBY", "BDG"
+  address     String?  @db.Text
+  city        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users             User[]
+  departments       Department[]
+  faceRegistrations FaceRegistration[]
+  adminAccess       AdminBranchAccess[]
+}
+```
+
+### AdminBranchAccess (v2.7.0)
+```prisma
+model AdminBranchAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  branchId  String
+  isDefault Boolean  @default(false)
+  user      User     @relation(...)
+  branch    Branch   @relation(...)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, branchId])
+}
+```
 
 ### User
 ```prisma
@@ -181,10 +242,14 @@ model User {
   name            String
   role            Role      @default(EMPLOYEE)
   departmentId    String?
+  branchId        String?             // v2.7.0: Branch assignment
+  allowedMenus    String?   @db.Text  // v2.7.0: JSON array of menu keys
   faceEmbedding   String?   @db.Text  // Single embedding (legacy)
   faceEmbeddings  String?   @db.Text  // Multiple embeddings (5 poses)
   faceImageUrl    String?   @db.Text
   isActive        Boolean   @default(true)
+
+  adminBranchAccess AdminBranchAccess[]  // v2.7.0
 }
 ```
 
@@ -542,5 +607,5 @@ node dist/main.js
 
 ---
 
-**Last Updated**: December 2, 2025
-**Version**: 2.5.0 (Added Testing Environment Support)
+**Last Updated**: December 4, 2025
+**Version**: 2.7.1 (SUPER_ADMIN Branch Column & Filter)

@@ -2,28 +2,40 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AttendanceType } from '@prisma/client';
 import { HolidaysService } from '../holidays/holidays.service';
+import { BranchAccessService } from '../auth/branch-access.service';
 
 @Injectable()
 export class ReportsService {
   constructor(
     private prisma: PrismaService,
     private holidaysService: HolidaysService,
+    private branchAccessService: BranchAccessService,
   ) {}
 
-  async getDailySummary(date: Date) {
+  async getDailySummary(date: Date, branchId?: string) {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
 
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const attendances = await this.prisma.attendance.findMany({
-      where: {
-        timestamp: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
+    // Build where clause with optional branch filter
+    const attendanceWhere: any = {
+      timestamp: {
+        gte: startOfDay,
+        lte: endOfDay,
       },
+    };
+
+    const employeeWhere: any = { role: 'EMPLOYEE', isActive: true };
+
+    if (branchId) {
+      attendanceWhere.user = { branchId };
+      employeeWhere.branchId = branchId;
+    }
+
+    const attendances = await this.prisma.attendance.findMany({
+      where: attendanceWhere,
       include: {
         user: {
           select: {
@@ -32,6 +44,10 @@ export class ReportsService {
             email: true,
             position: true,
             department: true,
+            branchId: true,
+            branch: {
+              select: { id: true, name: true, code: true },
+            },
           },
         },
       },
@@ -41,7 +57,7 @@ export class ReportsService {
     const checkOuts = attendances.filter((a) => a.type === AttendanceType.CHECK_OUT);
 
     const totalEmployees = await this.prisma.user.count({
-      where: { role: 'EMPLOYEE', isActive: true },
+      where: employeeWhere,
     });
 
     return {
@@ -122,9 +138,9 @@ export class ReportsService {
     };
   }
 
-  async getMonthlyAttendanceGrid(year: number, month: number) {
+  async getMonthlyAttendanceGrid(year: number, month: number, branchId?: string) {
     try {
-      console.log('[DEBUG] getMonthlyAttendanceGrid called with:', { year, month });
+      console.log('[DEBUG] getMonthlyAttendanceGrid called with:', { year, month, branchId });
 
       const startOfMonth = new Date(year, month - 1, 1);
       const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
@@ -138,9 +154,15 @@ export class ReportsService {
 
       console.log('[DEBUG] Date calculations:', { startOfMonth, endOfMonth, daysInMonth, displayDays });
 
+      // Build employee where clause with optional branch filter
+      const employeeWhere: any = { role: 'EMPLOYEE', isActive: true };
+      if (branchId) {
+        employeeWhere.branchId = branchId;
+      }
+
       // Get all active employees with startDate
       const employees = await this.prisma.user.findMany({
-        where: { role: 'EMPLOYEE', isActive: true },
+        where: employeeWhere,
         select: {
           id: true,
           name: true,
@@ -393,19 +415,33 @@ export class ReportsService {
     };
   }
 
-  async getDashboardStats() {
+  async getDashboardStats(userId?: string) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    // Build branch filter
+    let branchFilter: any = null;
+    if (userId) {
+      branchFilter = await this.branchAccessService.getBranchFilter(userId);
+    }
+
+    const employeeWhere: any = { role: 'EMPLOYEE', isActive: true };
+    const attendanceWhere: any = {};
+    if (branchFilter) {
+      employeeWhere.branchId = branchFilter.branchId;
+      attendanceWhere.user = { branchId: branchFilter.branchId };
+    }
+
     const totalEmployees = await this.prisma.user.count({
-      where: { role: 'EMPLOYEE', isActive: true },
+      where: employeeWhere,
     });
 
     const todayCheckIns = await this.prisma.attendance.count({
       where: {
+        ...attendanceWhere,
         type: AttendanceType.CHECK_IN,
         timestamp: {
           gte: today,
@@ -416,6 +452,7 @@ export class ReportsService {
 
     const todayCheckOuts = await this.prisma.attendance.count({
       where: {
+        ...attendanceWhere,
         type: AttendanceType.CHECK_OUT,
         timestamp: {
           gte: today,
@@ -430,6 +467,7 @@ export class ReportsService {
 
     const monthlyAttendances = await this.prisma.attendance.count({
       where: {
+        ...attendanceWhere,
         type: AttendanceType.CHECK_IN,
         timestamp: {
           gte: startOfMonth,
@@ -448,7 +486,9 @@ export class ReportsService {
     };
   }
 
-  async getEmployeeDetailReport(userId: string, startDate: Date, endDate: Date) {
+  async getEmployeeDetailReport(userId: string, startDate: Date, endDate: Date, branchId?: string) {
+    // Note: branchId parameter is for API consistency but not used since we filter by specific userId
+
     // 1. Get user info
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -664,10 +704,21 @@ export class ReportsService {
     return count;
   }
 
-  async getDashboardPresence() {
+  async getDashboardPresence(userId?: string) {
+    // Build branch filter
+    let branchFilter: any = null;
+    if (userId) {
+      branchFilter = await this.branchAccessService.getBranchFilter(userId);
+    }
+
+    const employeeWhere: any = { role: 'EMPLOYEE', isActive: true };
+    if (branchFilter) {
+      employeeWhere.branchId = branchFilter.branchId;
+    }
+
     // Get all active employees
     const employees = await this.prisma.user.findMany({
-      where: { role: 'EMPLOYEE', isActive: true },
+      where: employeeWhere,
       select: {
         id: true,
         name: true,

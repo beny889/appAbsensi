@@ -1,8 +1,68 @@
+// Branch Types
+export interface Branch {
+  id: string;
+  name: string;
+  code: string;
+  address?: string;
+  city?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    users: number;
+    departments: number;
+  };
+}
+
+export interface CreateBranchDto {
+  name: string;
+  code: string;
+  address?: string;
+  city?: string;
+  isActive?: boolean;
+}
+
+export interface UpdateBranchDto {
+  name?: string;
+  code?: string;
+  address?: string;
+  city?: string;
+  isActive?: boolean;
+}
+
+// Device Binding Types
+export interface DeviceBinding {
+  id: string;
+  code: string;
+  branchId: string;
+  branch?: Branch;
+  deviceName: string | null;
+  isActive: boolean;
+  usedAt: string | null;
+  createdBy: string;
+  creator?: {
+    id: string;
+    name: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBindingDto {
+  branchId: string;
+}
+
+export interface DeleteBindingDto {
+  password: string;
+}
+
 // Department Types
 export interface Department {
   id: string;
   name: string;
   description?: string;
+  branchId?: string;
+  branch?: Branch;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -34,10 +94,12 @@ export interface User {
   id: string;
   email?: string; // Nullable for EMPLOYEE (only ADMIN has email)
   name: string;
-  role: 'ADMIN' | 'EMPLOYEE';
+  role: 'SUPER_ADMIN' | 'BRANCH_ADMIN' | 'ADMIN' | 'EMPLOYEE';
   position?: string;
   departmentId?: string;
   department?: Department;
+  branchId?: string;
+  branch?: Branch;
   phone?: string;
   isActive: boolean;
   faceImageUrl?: string;
@@ -147,6 +209,8 @@ export interface FaceRegistration {
   faceEmbedding: string;
   faceImageUrl?: string;
   status: RegistrationStatus;
+  branchId?: string;
+  branch?: Branch;
   reviewedBy?: string;
   reviewedAt?: string;
   rejectionReason?: string;
@@ -261,6 +325,12 @@ export interface FaceMatchAttempt {
   id: string;
   attemptType: 'CHECK_IN' | 'CHECK_OUT';
   success: boolean;
+  branchId?: string;
+  branch?: {
+    id: string;
+    name: string;
+    code: string;
+  };
   matchedUserId?: string;
   matchedUserName?: string;
   threshold: number;
@@ -289,6 +359,57 @@ export interface FaceMatchAttemptListResponse {
     limit: number;
     totalPages: number;
   };
+}
+
+// Admin User Types
+export interface AdminBranchAccess {
+  id: string;
+  branchId: string;
+  isDefault: boolean;
+  branch: {
+    id: string;
+    name: string;
+    code: string;
+  };
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  role: 'SUPER_ADMIN' | 'BRANCH_ADMIN' | 'ADMIN';
+  isActive: boolean;
+  allowedMenus: string[] | null;
+  defaultBranchId: string | null;
+  adminBranchAccess: AdminBranchAccess[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAdminDto {
+  email: string;
+  password: string;
+  name: string;
+  role?: 'SUPER_ADMIN' | 'BRANCH_ADMIN' | 'ADMIN';
+  allowedMenus?: string[];
+  branchIds?: string[];
+  defaultBranchId?: string;
+}
+
+export interface UpdateAdminDto {
+  email?: string;
+  password?: string;
+  name?: string;
+  role?: 'SUPER_ADMIN' | 'BRANCH_ADMIN' | 'ADMIN';
+  isActive?: boolean;
+  allowedMenus?: string[];
+  branchIds?: string[];
+  defaultBranchId?: string;
+}
+
+export interface MenuOption {
+  key: string;
+  label: string;
 }
 
 // Common Types

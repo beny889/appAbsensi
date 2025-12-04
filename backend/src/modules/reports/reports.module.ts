@@ -3,9 +3,10 @@ import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { HolidaysModule } from '../holidays/holidays.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [PrismaModule, HolidaysModule],
+  imports: [PrismaModule, HolidaysModule, AuthModule],
   controllers: [ReportsController],
   providers: [ReportsService],
   exports: [ReportsService],

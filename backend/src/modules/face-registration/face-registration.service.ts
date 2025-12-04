@@ -3,9 +3,12 @@ import {
   BadRequestException,
   NotFoundException,
   ConflictException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FaceRecognitionMlService } from './face-recognition-ml.service';
+import { BranchAccessService } from '../auth/branch-access.service';
 import {
   SubmitFaceRegistrationDto,
   ApproveRegistrationDto,
@@ -20,6 +23,8 @@ export class FaceRegistrationService {
   constructor(
     private prisma: PrismaService,
     private faceRecognitionMl: FaceRecognitionMlService,
+    @Inject(forwardRef(() => BranchAccessService))
+    private branchAccessService: BranchAccessService,
   ) {}
 
   /**
@@ -120,6 +125,7 @@ export class FaceRegistrationService {
         faceEmbeddings: faceEmbeddings,
         faceImageUrl: faceImageUrl,
         status: RegistrationStatus.PENDING,
+        branchId: dto.branchId, // Branch from device
       },
     });
 
@@ -134,11 +140,21 @@ export class FaceRegistrationService {
   /**
    * Get all pending registrations (admin only)
    */
-  async getPendingRegistrations() {
+  async getPendingRegistrations(userId?: string) {
+    const where: any = {
+      status: RegistrationStatus.PENDING,
+    };
+
+    // Add branch filter if userId provided
+    if (userId) {
+      const branchFilter = await this.branchAccessService.getBranchFilter(userId);
+      if (branchFilter) {
+        where.branchId = branchFilter.branchId;
+      }
+    }
+
     const registrations = await this.prisma.faceRegistration.findMany({
-      where: {
-        status: RegistrationStatus.PENDING,
-      },
+      where,
       orderBy: {
         createdAt: 'desc',
       },
@@ -149,6 +165,14 @@ export class FaceRegistrationService {
         status: true,
         createdAt: true,
         updatedAt: true,
+        branchId: true,
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
       },
     });
 
@@ -167,6 +191,13 @@ export class FaceRegistrationService {
             id: true,
             name: true,
             role: true,
+          },
+        },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
           },
         },
       },
@@ -266,6 +297,7 @@ export class FaceRegistrationService {
           role: role,
           position: dto.position,
           department: dto.departmentId ? { connect: { id: dto.departmentId } } : undefined,
+          branch: registration.branchId ? { connect: { id: registration.branchId } } : undefined, // Branch from registration
           phone: dto.phone,
           startDate: dto.startDate ? new Date(dto.startDate) : null,
           faceEmbedding: registration.faceEmbedding,

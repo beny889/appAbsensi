@@ -12,9 +12,11 @@ import EmployeeDetailReport from './pages/Reports/EmployeeDetailReport';
 import PendingRegistrations from './pages/FaceRegistration/PendingRegistrations';
 import WorkSchedules from './pages/WorkSchedules/WorkSchedules';
 import Departments from './pages/Departments/Departments';
+import Branches from './pages/Branches/Branches';
 import Holidays from './pages/Holidays/Holidays';
 import Settings from './pages/Settings/Settings';
 import FaceMatchLogs from './pages/FaceMatchLogs';
+import AdminUsers from './pages/AdminUsers/AdminUsers';
 import Layout from './components/layout/Layout';
 import NotFound from './pages/NotFound/NotFound';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -56,6 +58,7 @@ function App() {
                 <Route path="employees" element={<Employees />} />
                 <Route path="attendance" element={<Attendance />} />
                 <Route path="face-registration/pending" element={<PendingRegistrations />} />
+                <Route path="branches" element={<Branches />} />
                 <Route path="departments" element={<Departments />} />
                 <Route path="work-schedules" element={<WorkSchedules />} />
                 <Route path="reports/daily" element={<DailyReports />} />
@@ -63,6 +66,7 @@ function App() {
                 <Route path="reports/employee-detail" element={<EmployeeDetailReport />} />
                 <Route path="holidays" element={<Holidays />} />
                 <Route path="face-match-logs" element={<FaceMatchLogs />} />
+                <Route path="admin-users" element={<AdminUsers />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Route>

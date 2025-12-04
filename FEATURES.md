@@ -140,6 +140,105 @@ Threshold face matching di-sync dari backend:
 
 ---
 
+## Multi-Branch Support (v2.7.0)
+
+### Branch Management
+- **CRUD Cabang**: Create, read, update, delete cabang/lokasi
+- **Branch Code**: Kode singkat untuk identifikasi (e.g., "JKT", "SBY", "BDG")
+- **Branch Status**: Aktif/tidak aktif
+- **Branch Stats**: Jumlah karyawan dan departemen per cabang
+
+### Android Branch Selection
+- **First Launch**: Pilih cabang saat pertama kali buka app
+- **Permanent Selection**: Tidak bisa diubah setelah dipilih
+- **Auto-Registration**: Registrasi wajah otomatis pakai branch dari device
+- **Auto-Attendance**: Absensi otomatis pakai branch dari device
+
+### Role-Based Branch Access
+| Role | Access |
+|------|--------|
+| SUPER_ADMIN | Semua cabang, semua menu |
+| BRANCH_ADMIN | Cabang tertentu, menu tertentu |
+
+### Data Filtering per Branch
+Semua endpoint admin difilter berdasarkan akses cabang user:
+- ✅ Employees - Filter by `user.branchId`
+- ✅ Attendance - Filter by `user.branchId`
+- ✅ Departments - Filter by `department.branchId`
+- ✅ Dashboard Stats - Filter employees & attendance
+- ✅ Dashboard Presence - Filter employees
+- ✅ Face Registration - Filter by `registration.branchId`
+
+---
+
+## Admin Management (v2.7.0)
+
+### Admin Users CRUD
+- **Create Admin**: Nama, email, password, role
+- **Edit Admin**: Update data, reset password
+- **Delete Admin**: Hapus akun admin
+- **Active/Inactive**: Toggle status admin
+
+### Menu Access Control
+Admin dapat dibatasi menu yang bisa diakses:
+- `dashboard` - Dashboard
+- `employees` - Karyawan
+- `attendance` - Absensi
+- `face-registration` - Pendaftaran Wajah
+- `branches` - Cabang
+- `departments` - Departemen
+- `work-schedules` - Jadwal Kerja
+- `holidays` - Hari Libur
+- `reports` - Laporan
+- `face-match-logs` - Face Match Logs
+- `settings` - Pengaturan
+- `admin-users` - Manajemen Admin
+
+### Branch Access Control
+- **Multi-Branch**: Admin bisa akses lebih dari satu cabang
+- **Dynamic Filter**: Data otomatis difilter sesuai akses
+
+### Dynamic Sidebar
+- Menu yang tidak diizinkan otomatis tersembunyi
+- SUPER_ADMIN selalu melihat semua menu
+- BRANCH_ADMIN hanya melihat menu yang diizinkan
+
+---
+
+## SUPER_ADMIN Enhancements (v2.7.1)
+
+### Branch Column di Halaman Data
+**Kolom "Cabang" ditampilkan di 7 halaman data (hanya untuk SUPER_ADMIN)**
+
+| Halaman | Lokasi Kolom | Data Source |
+|---------|--------------|-------------|
+| Employees | Setelah Departemen | `employee.branch?.name` |
+| Attendance | Setelah Karyawan | `attendance.user?.branch?.name` |
+| Face Registration | Setelah Nama | `registration.branch?.name` |
+| Departments | Setelah Nama | `department.branch?.name` |
+| Work Schedules | Setelah Departemen | `schedule.department?.branch?.name` |
+| Holidays | Setelah Tanggal | `holiday.branch?.name` |
+| Face Match Logs | Setelah Waktu | `attempt.branch?.name` |
+
+**Catatan**: Kolom branch hanya tampil untuk user dengan role `SUPER_ADMIN`. BRANCH_ADMIN tidak melihat kolom ini karena data sudah difilter otomatis per cabang.
+
+### Branch Filter di Halaman Report
+**Filter cabang (single-select) di 3 halaman report (hanya untuk SUPER_ADMIN)**
+
+| Halaman | Filter Location | Behavior |
+|---------|-----------------|----------|
+| Daily Reports | Sebelah date picker | Filter data harian per cabang |
+| Monthly Reports | Sebelah month picker | Filter grid bulanan per cabang |
+| Employee Detail | Di atas employee picker | Filter employee list + report per cabang |
+
+**Features**:
+- Dropdown dengan opsi "Semua Cabang" + daftar cabang aktif
+- Single-select (bukan multi-select) untuk konsistensi
+- Di Employee Detail Report, memilih cabang akan memfilter daftar karyawan yang bisa dipilih
+- Perubahan filter langsung memuat ulang data
+
+---
+
 ## Admin Features
 
 ### Face Registration Management
@@ -308,6 +407,40 @@ Log setiap percobaan face matching untuk debugging:
 
 ## Database Schema
 
+### Branch (v2.7.0)
+```prisma
+model Branch {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique  // e.g., "JKT", "SBY", "BDG"
+  address     String?  @db.Text
+  city        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users             User[]
+  departments       Department[]
+  faceRegistrations FaceRegistration[]
+  adminAccess       AdminBranchAccess[]
+}
+```
+
+### AdminBranchAccess (v2.7.0)
+```prisma
+model AdminBranchAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  branchId  String
+  isDefault Boolean  @default(false)
+  user      User     @relation(...)
+  branch    Branch   @relation(...)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, branchId])
+}
+```
+
 ### User
 ```prisma
 model User {
@@ -317,10 +450,14 @@ model User {
   name            String
   role            Role      @default(EMPLOYEE)
   departmentId    String?
+  branchId        String?             // v2.7.0: Branch assignment
+  allowedMenus    String?   @db.Text  // v2.7.0: JSON array of menu keys
   faceEmbedding   String?   @db.Text  // Single embedding (legacy)
   faceEmbeddings  String?   @db.Text  // Multiple embeddings (5 poses)
   faceImageUrl    String?   @db.Text
   isActive        Boolean   @default(true)
+
+  adminBranchAccess AdminBranchAccess[]  // v2.7.0
 }
 ```
 
@@ -457,6 +594,20 @@ PUT  /api/settings/similarity-threshold # Update face threshold
 
 # Auth
 POST /api/auth/change-password          # Change admin password
+
+# Branch Management (v2.7.0)
+GET    /api/branches              # List semua cabang
+GET    /api/branches/list         # List cabang aktif (public)
+POST   /api/branches              # Create cabang (SUPER_ADMIN)
+PUT    /api/branches/:id          # Update cabang
+DELETE /api/branches/:id          # Delete cabang
+
+# Admin Management (v2.7.0)
+GET    /api/admin-users           # List semua admin (SUPER_ADMIN)
+GET    /api/admin-users/menus     # List menu yang tersedia
+POST   /api/admin-users           # Create admin baru
+PUT    /api/admin-users/:id       # Update admin
+DELETE /api/admin-users/:id       # Delete admin
 ```
 
 ---
@@ -505,5 +656,5 @@ FACE_SIMILARITY_THRESHOLD = 0.6  // Server-side face matching threshold
 
 ---
 
-**Last Updated**: December 3, 2025
-**Version**: 2.6.0 (Face Alignment for Improved Recognition)
+**Last Updated**: December 4, 2025
+**Version**: 2.7.1 (SUPER_ADMIN Branch Column & Filter)

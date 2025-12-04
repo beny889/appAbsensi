@@ -17,7 +17,7 @@ import { Role } from '@prisma/client';
 
 @Controller('work-schedules')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN) // Only admins can manage work schedules
+@Roles(Role.ADMIN, Role.BRANCH_ADMIN) // Only admins can manage work schedules
 export class WorkScheduleController {
   constructor(private workScheduleService: WorkScheduleService) {}
 

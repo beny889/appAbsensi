@@ -1,15 +1,29 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { BranchAccessService } from '../auth/branch-access.service';
 import { UpdateEmployeeDto, RegisterFaceDto } from './dto';
 import { Role } from '@prisma/client';
 
 @Injectable()
 export class EmployeeService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private branchAccessService: BranchAccessService,
+  ) {}
 
-  async findAll() {
+  async findAll(userId?: string) {
+    // Build where clause with branch filter if userId provided
+    const where: any = { role: Role.EMPLOYEE };
+
+    if (userId) {
+      const branchFilter = await this.branchAccessService.getBranchFilter(userId);
+      if (branchFilter) {
+        where.branchId = branchFilter.branchId;
+      }
+    }
+
     return this.prisma.user.findMany({
-      where: { role: Role.EMPLOYEE },
+      where,
       select: {
         id: true,
         name: true,
@@ -17,6 +31,14 @@ export class EmployeeService {
         position: true,
         departmentId: true,
         department: true,
+        branchId: true,
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         isActive: true,
         startDate: true,
         createdAt: true,

@@ -110,4 +110,49 @@ interface ApiService {
     suspend fun getUserSchedule(
         @Path("userId") userId: String
     ): Response<UserScheduleResponse>
+
+    /**
+     * Get list of active branches (NO authentication required)
+     * Used for branch selection on first app launch
+     */
+    @GET("branches/list")
+    suspend fun getBranches(): Response<List<BranchDto>>
+
+    /**
+     * Verify branch by code (NO authentication required)
+     * Used for manual branch code entry on first app launch
+     */
+    @GET("branches/verify-code/{code}")
+    suspend fun verifyBranchCode(
+        @Path("code") code: String
+    ): Response<BranchDto>
+
+    // ==================== DEVICE BINDING ENDPOINTS ====================
+
+    /**
+     * Verify binding code (NO authentication required)
+     * Used for initial binding code verification
+     */
+    @GET("device-bindings/verify/{code}")
+    suspend fun verifyBindingCode(
+        @Path("code") code: String
+    ): Response<VerifyBindingResponse>
+
+    /**
+     * Use binding code to bind device (NO authentication required)
+     * Called when device confirms binding
+     */
+    @POST("device-bindings/use")
+    suspend fun useBindingCode(
+        @Body request: UseBindingRequest
+    ): Response<UseBindingResponse>
+
+    /**
+     * Validate binding code is still active (NO authentication required)
+     * Called on app startup to check if binding is still valid
+     */
+    @POST("device-bindings/validate")
+    suspend fun validateBindingCode(
+        @Body request: ValidateBindingRequest
+    ): Response<ValidateBindingResponse>
 }

@@ -24,7 +24,7 @@ export class HolidaysController {
   constructor(private readonly holidaysService: HolidaysService) {}
 
   @Get()
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async findAll(@Query('year') year?: string) {
     if (year) {
       return this.holidaysService.findByYear(parseInt(year, 10));
@@ -33,7 +33,7 @@ export class HolidaysController {
   }
 
   @Get('month')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async findByMonth(
     @Query('year') year: string,
     @Query('month') month: string,
@@ -45,26 +45,26 @@ export class HolidaysController {
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async findOne(@Param('id') id: string) {
     return this.holidaysService.findOne(id);
   }
 
   @Post()
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateHolidayDto) {
     return this.holidaysService.create(dto);
   }
 
   @Put(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async update(@Param('id') id: string, @Body() dto: UpdateHolidayDto) {
     return this.holidaysService.update(id, dto);
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string) {
     return this.holidaysService.remove(id);

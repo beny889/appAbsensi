@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { FaceRecognitionMlService } from '../face-registration/face-recognition-ml.service';
 import { SettingsService } from '../settings/settings.service';
+import { BranchAccessService } from '../auth/branch-access.service';
 import { CreateAttendanceDto, VerifyFaceDto, VerifyDeviceDto, LogAttemptDto } from './dto';
 import { AttendanceType } from '@prisma/client';
 
@@ -16,6 +17,7 @@ export class AttendanceService {
     private prisma: PrismaService,
     private faceRecognitionMl: FaceRecognitionMlService,
     private settingsService: SettingsService,
+    private branchAccessService: BranchAccessService,
   ) {}
 
   private readonly DEFAULT_FACE_DISTANCE_THRESHOLD = 0.6; // Fallback threshold
@@ -393,7 +395,7 @@ export class AttendanceService {
     return result;
   }
 
-  async getAllAttendances(startDate?: Date, endDate?: Date) {
+  async getAllAttendances(startDate?: Date, endDate?: Date, userId?: string) {
     const where: any = {};
 
     if (startDate || endDate) {
@@ -412,6 +414,14 @@ export class AttendanceService {
       }
     }
 
+    // Add branch filter if userId provided
+    if (userId) {
+      const branchFilter = await this.branchAccessService.getBranchFilter(userId);
+      if (branchFilter) {
+        where.user = { branchId: branchFilter.branchId };
+      }
+    }
+
     return this.prisma.attendance.findMany({
       where,
       include: {
@@ -422,6 +432,14 @@ export class AttendanceService {
             email: true,
             position: true,
             department: true,
+            branchId: true,
+            branch: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
             faceImageUrl: true,
           },
         },
@@ -966,6 +984,11 @@ export class AttendanceService {
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
+        include: {
+          branch: {
+            select: { id: true, name: true, code: true },
+          },
+        },
       }),
       this.prisma.faceMatchAttempt.count(),
     ]);
@@ -987,6 +1010,11 @@ export class AttendanceService {
   async getFaceMatchAttemptById(id: string) {
     const attempt = await this.prisma.faceMatchAttempt.findUnique({
       where: { id },
+      include: {
+        branch: {
+          select: { id: true, name: true, code: true },
+        },
+      },
     });
 
     if (!attempt) {

@@ -26,7 +26,11 @@ data class SubmitFaceRegistrationRequest(
     val faceEmbeddings: List<String>? = null,  // Array of JSON embedding strings
 
     @SerializedName("faceImagesBase64")
-    val faceImagesBase64: List<String>? = null  // Array of base64 images
+    val faceImagesBase64: List<String>? = null,  // Array of base64 images
+
+    // Branch ID for multi-branch support (from device's selected branch)
+    @SerializedName("branchId")
+    val branchId: String? = null
 )
 
 /**

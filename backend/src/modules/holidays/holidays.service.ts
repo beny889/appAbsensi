@@ -21,6 +21,9 @@ export class HolidaysService {
             },
           },
         },
+        branch: {
+          select: { id: true, name: true, code: true },
+        },
       },
     });
   }
@@ -44,6 +47,9 @@ export class HolidaysService {
               select: { id: true, name: true },
             },
           },
+        },
+        branch: {
+          select: { id: true, name: true, code: true },
         },
       },
     });
@@ -74,6 +80,9 @@ export class HolidaysService {
               select: { id: true, name: true },
             },
           },
+        },
+        branch: {
+          select: { id: true, name: true, code: true },
         },
       },
     });

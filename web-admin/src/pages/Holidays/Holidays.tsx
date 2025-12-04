@@ -35,12 +35,13 @@ import {
   Public as GlobalIcon,
   Person as PersonIcon,
 } from '@mui/icons-material';
-import { holidaysApi, Holiday, CreateHolidayDto, employeesApi } from '@/api';
+import { holidaysApi, Holiday, CreateHolidayDto, employeesApi, authApi } from '@/api';
 import { Employee } from '@/types';
 import { usePageTitle } from '@/contexts/PageTitleContext';
 import toast from 'react-hot-toast';
 
 export default function Holidays() {
+  const isSuperAdmin = authApi.getUserRole() === 'SUPER_ADMIN';
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -218,6 +219,7 @@ export default function Holidays() {
             <TableRow>
               <TableCell width={50}><strong>No</strong></TableCell>
               <TableCell><strong>Tanggal</strong></TableCell>
+              {isSuperAdmin && <TableCell><strong>Cabang</strong></TableCell>}
               <TableCell><strong>Nama Hari Libur</strong></TableCell>
               <TableCell><strong>Berlaku Untuk</strong></TableCell>
               <TableCell><strong>Deskripsi</strong></TableCell>
@@ -227,7 +229,7 @@ export default function Holidays() {
           <TableBody>
             {holidays.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={isSuperAdmin ? 7 : 6} align="center">
                   <Box py={3}>
                     <CalendarIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
                     <Typography variant="body2" color="textSecondary">
@@ -248,6 +250,13 @@ export default function Holidays() {
                       {new Date(holiday.date).toLocaleDateString('id-ID', { weekday: 'long' })}
                     </Typography>
                   </TableCell>
+                  {isSuperAdmin && (
+                    <TableCell>
+                      <Typography variant="body2">
+                        {holiday.branch?.name || '-'}
+                      </Typography>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Typography fontWeight="medium">{holiday.name}</Typography>
                   </TableCell>

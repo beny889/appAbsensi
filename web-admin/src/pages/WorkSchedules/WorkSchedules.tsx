@@ -31,12 +31,13 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { workScheduleApi, departmentApi } from '@/api';
+import { workScheduleApi, departmentApi, authApi } from '@/api';
 import { WorkSchedule, CreateWorkScheduleDto, Department } from '@/types';
 import { usePageTitle } from '@/contexts/PageTitleContext';
 import toast from 'react-hot-toast';
 
 export default function WorkSchedules() {
+  const isSuperAdmin = authApi.getUserRole() === 'SUPER_ADMIN';
   const [schedules, setSchedules] = useState<WorkSchedule[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -166,6 +167,7 @@ export default function WorkSchedules() {
           <TableHead>
             <TableRow>
               <TableCell><strong>Departemen</strong></TableCell>
+              {isSuperAdmin && <TableCell><strong>Cabang</strong></TableCell>}
               <TableCell><strong>Jam Masuk</strong></TableCell>
               <TableCell><strong>Jam Pulang</strong></TableCell>
               <TableCell><strong>Status</strong></TableCell>
@@ -175,7 +177,7 @@ export default function WorkSchedules() {
           <TableBody>
             {schedules.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={isSuperAdmin ? 6 : 5} align="center">
                   <Typography variant="body2" color="textSecondary" py={3}>
                     Belum ada jadwal kerja yang dikonfigurasi
                   </Typography>
@@ -185,6 +187,13 @@ export default function WorkSchedules() {
               schedules.map((schedule) => (
                 <TableRow key={schedule.id}>
                   <TableCell>{schedule.department?.name || 'N/A'}</TableCell>
+                  {isSuperAdmin && (
+                    <TableCell>
+                      <Typography variant="body2">
+                        {(schedule.department as any)?.branch?.name || '-'}
+                      </Typography>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Chip
                       label={schedule.checkInTime}

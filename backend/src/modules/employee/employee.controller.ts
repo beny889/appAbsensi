@@ -22,9 +22,9 @@ export class EmployeeController {
   constructor(private employeeService: EmployeeService) {}
 
   @Get()
-  @Roles(Role.ADMIN)
-  async findAll() {
-    return this.employeeService.findAll();
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
+  async findAll(@CurrentUser() user: any) {
+    return this.employeeService.findAll(user.id);
   }
 
   @Get(':id')
@@ -42,7 +42,7 @@ export class EmployeeController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async delete(@Param('id') id: string) {
     return this.employeeService.delete(id);
   }

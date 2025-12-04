@@ -20,8 +20,8 @@ import {
   PictureAsPdf as PdfIcon,
   Visibility as PreviewIcon,
 } from '@mui/icons-material';
-import { reportsApi, employeesApi } from '@/api';
-import { Employee, EmployeeDetailReport as EmployeeDetailReportType } from '@/types';
+import { reportsApi, employeesApi, branchApi, authApi } from '@/api';
+import { Employee, EmployeeDetailReport as EmployeeDetailReportType, Branch } from '@/types';
 import { usePageTitle } from '@/contexts/PageTitleContext';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
@@ -29,6 +29,7 @@ import autoTable from 'jspdf-autotable';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
 export default function EmployeeDetailReport() {
+  const isSuperAdmin = authApi.getUserRole() === 'SUPER_ADMIN';
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -37,12 +38,22 @@ export default function EmployeeDetailReport() {
   const [loading, setLoading] = useState(false);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
   const [report, setReport] = useState<EmployeeDetailReportType | null>(null);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState('');
 
   usePageTitle('Laporan Detail Karyawan', 'Lihat detail absensi per karyawan dalam rentang waktu tertentu');
 
   useEffect(() => {
     loadEmployees();
-  }, []);
+    if (isSuperAdmin) {
+      branchApi.getAll().then(setBranches).catch(() => {});
+    }
+  }, [isSuperAdmin]);
+
+  // Filter employees by selected branch
+  const filteredEmployees = selectedBranchId
+    ? employees.filter(emp => emp.branchId === selectedBranchId)
+    : employees;
 
   const loadEmployees = async () => {
     try {
@@ -98,7 +109,7 @@ export default function EmployeeDetailReport() {
 
     setLoading(true);
     try {
-      const data = await reportsApi.getEmployeeDetailReport(selectedEmployeeId, startDate, endDate);
+      const data = await reportsApi.getEmployeeDetailReport(selectedEmployeeId, startDate, endDate, selectedBranchId || undefined);
       setReport(data);
       if (data.dailyRecords.length === 0) {
         toast.error('Tidak ada data untuk periode ini');
@@ -230,7 +241,24 @@ export default function EmployeeDetailReport() {
       {/* Filter Section */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={3}>
+          {isSuperAdmin && (
+            <Grid item xs={12} sm={6} md={2}>
+              <TextField
+                fullWidth
+                select
+                label="Filter Cabang"
+                value={selectedBranchId}
+                onChange={(e) => { setSelectedBranchId(e.target.value); setSelectedEmployeeId(''); setReport(null); }}
+                size="small"
+              >
+                <MenuItem value="">Semua Cabang</MenuItem>
+                {branches.map((b) => (
+                  <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+          )}
+          <Grid item xs={12} sm={6} md={isSuperAdmin ? 3 : 3}>
             <TextField
               fullWidth
               select
@@ -243,7 +271,7 @@ export default function EmployeeDetailReport() {
               {loadingEmployees ? (
                 <MenuItem value="">Loading...</MenuItem>
               ) : (
-                employees.map((emp) => (
+                filteredEmployees.map((emp) => (
                   <MenuItem key={emp.id} value={emp.id}>
                     {emp.name} {emp.department ? `(${emp.department.name})` : ''}
                   </MenuItem>

@@ -43,9 +43,9 @@ export class FaceRegistrationController {
    */
   @Get('pending')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  async getPending() {
-    return this.faceRegistrationService.getPendingRegistrations();
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
+  async getPending(@Request() req) {
+    return this.faceRegistrationService.getPendingRegistrations(req.user.id);
   }
 
   /**
@@ -54,7 +54,7 @@ export class FaceRegistrationController {
    */
   @Get(':id/check-duplicate')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async checkDuplicate(@Param('id') id: string) {
     return this.faceRegistrationService.previewDuplicate(id);
   }
@@ -64,7 +64,7 @@ export class FaceRegistrationController {
    */
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async getById(@Param('id') id: string) {
     return this.faceRegistrationService.getRegistrationById(id);
   }
@@ -74,7 +74,7 @@ export class FaceRegistrationController {
    */
   @Post(':id/approve')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   @HttpCode(HttpStatus.OK)
   async approve(
     @Param('id') id: string,
@@ -90,7 +90,7 @@ export class FaceRegistrationController {
    */
   @Post(':id/replace-face')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   @HttpCode(HttpStatus.OK)
   async replaceFace(
     @Param('id') id: string,
@@ -106,7 +106,7 @@ export class FaceRegistrationController {
    */
   @Post(':id/reject')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   @HttpCode(HttpStatus.OK)
   async reject(
     @Param('id') id: string,
@@ -122,7 +122,7 @@ export class FaceRegistrationController {
    */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   @HttpCode(HttpStatus.OK)
   async delete(@Param('id') id: string) {
     return this.faceRegistrationService.deleteRegistration(id);
@@ -133,7 +133,7 @@ export class FaceRegistrationController {
    */
   @Get('stats/overview')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async getStatistics() {
     return this.faceRegistrationService.getStatistics();
   }

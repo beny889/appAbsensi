@@ -34,4 +34,9 @@ export class SubmitFaceRegistrationDto {
   @IsOptional()
   @ValidateIf((o) => !o.faceEmbedding && !o.faceEmbeddings && !o.faceImageBase64)
   faceImagesBase64?: string[];
+
+  // Branch ID for multi-branch support
+  @IsString()
+  @IsOptional()
+  branchId?: string;
 }

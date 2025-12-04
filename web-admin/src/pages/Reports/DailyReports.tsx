@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -14,9 +14,10 @@ import {
   TableHead,
   TableRow,
   Chip,
+  MenuItem,
 } from '@mui/material';
-import { reportsApi } from '@/api';
-import { DailyReport, Attendance } from '@/types';
+import { reportsApi, branchApi, authApi } from '@/api';
+import { DailyReport, Attendance, Branch } from '@/types';
 import { usePageTitle } from '@/contexts/PageTitleContext';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -30,11 +31,20 @@ interface GroupedAttendance {
 }
 
 export default function DailyReports() {
+  const isSuperAdmin = authApi.getUserRole() === 'SUPER_ADMIN';
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [report, setReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(false);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState('');
 
   usePageTitle('Laporan Harian', 'Ringkasan kehadiran karyawan per hari');
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      branchApi.getAll().then(setBranches).catch(() => {});
+    }
+  }, [isSuperAdmin]);
 
   // Group attendances by user (1 row per user with masuk & pulang combined)
   const groupedAttendances = useMemo((): GroupedAttendance[] => {
@@ -73,7 +83,7 @@ export default function DailyReports() {
 
     setLoading(true);
     try {
-      const data = await reportsApi.getDailyReport(date);
+      const data = await reportsApi.getDailyReport(date, selectedBranchId || undefined);
       setReport(data);
       toast.success('Laporan berhasil dimuat');
     } catch (error) {
@@ -87,7 +97,7 @@ export default function DailyReports() {
     <Box>
       <Paper sx={{ p: 3, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={isSuperAdmin ? 4 : 6}>
             <TextField
               fullWidth
               type="date"
@@ -97,7 +107,23 @@ export default function DailyReports() {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          {isSuperAdmin && (
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                select
+                label="Filter Cabang"
+                value={selectedBranchId}
+                onChange={(e) => { setSelectedBranchId(e.target.value); setReport(null); }}
+              >
+                <MenuItem value="">Semua Cabang</MenuItem>
+                {branches.map((b) => (
+                  <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+          )}
+          <Grid item xs={12} sm={isSuperAdmin ? 4 : 6}>
             <Button
               fullWidth
               variant="contained"

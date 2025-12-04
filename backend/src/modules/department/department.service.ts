@@ -4,15 +4,19 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { BranchAccessService } from '../auth/branch-access.service';
 import { CreateDepartmentDto, UpdateDepartmentDto } from './dto';
 
 @Injectable()
 export class DepartmentService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private branchAccessService: BranchAccessService,
+  ) {}
 
   async create(dto: CreateDepartmentDto) {
-    // Check if department already exists
-    const existing = await this.prisma.department.findUnique({
+    // Check if department already exists (same name in same branch)
+    const existing = await this.prisma.department.findFirst({
       where: { name: dto.name },
     });
 
@@ -31,10 +35,28 @@ export class DepartmentService {
     });
   }
 
-  async findAll() {
+  async findAll(userId?: string) {
+    const where: any = {};
+
+    // Add branch filter if userId provided
+    if (userId) {
+      const branchFilter = await this.branchAccessService.getBranchFilter(userId);
+      if (branchFilter) {
+        where.branchId = branchFilter.branchId;
+      }
+    }
+
     return this.prisma.department.findMany({
+      where,
       orderBy: { name: 'asc' },
       include: {
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         _count: {
           select: {
             users: true,
@@ -77,7 +99,7 @@ export class DepartmentService {
 
     // If name is being updated, check for conflicts
     if (dto.name && dto.name !== existing.name) {
-      const conflict = await this.prisma.department.findUnique({
+      const conflict = await this.prisma.department.findFirst({
         where: { name: dto.name },
       });
 

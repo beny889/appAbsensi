@@ -1,5 +1,249 @@
 # 📝 Changelog - Sistem Absensi
 
+## [2.7.1] SUPER_ADMIN Branch Column & Filter (2025-12-04)
+
+### 🎯 Feature: Branch Column di Halaman Data
+
+#### ✅ Kolom "Cabang" untuk SUPER_ADMIN
+**7 halaman data sekarang menampilkan kolom "Cabang" untuk SUPER_ADMIN**
+
+- ✅ **Employees**: Kolom setelah "Departemen" dengan data `employee.branch?.name`
+- ✅ **Attendance**: Kolom setelah "Karyawan" dengan data `attendance.user?.branch?.name`
+- ✅ **Face Registration**: Kolom setelah "Nama" dengan data `registration.branch?.name`
+- ✅ **Departments**: Kolom setelah "Nama Departemen" dengan data `department.branch?.name`
+- ✅ **Work Schedules**: Kolom setelah "Departemen" dengan data `schedule.department?.branch?.name`
+- ✅ **Holidays**: Kolom setelah "Tanggal" dengan data `holiday.branch?.name`
+- ✅ **Face Match Logs**: Kolom setelah "Waktu" dengan data `attempt.branch?.name`
+
+**Implementation Pattern**:
+```tsx
+// Check role
+const userRole = authApi.getUserRole();
+const isSuperAdmin = userRole === 'SUPER_ADMIN';
+
+// Conditional column header
+{isSuperAdmin && <TableCell>Cabang</TableCell>}
+
+// Conditional column data
+{isSuperAdmin && <TableCell>{row.branch?.name || '-'}</TableCell>}
+```
+
+---
+
+### 🎯 Feature: Branch Filter di Halaman Report
+
+#### ✅ Filter Cabang untuk SUPER_ADMIN
+**3 halaman report sekarang memiliki filter cabang (single-select)**
+
+- ✅ **Daily Reports**: Dropdown filter di sebelah date picker
+- ✅ **Monthly Reports**: Dropdown filter di sebelah month/year picker
+- ✅ **Employee Detail Report**: Dropdown filter + employee list difilter berdasarkan cabang
+
+**API Updates**:
+```
+GET /api/reports/daily?date=YYYY-MM-DD&branchId=xxx
+GET /api/reports/monthly-grid?year=YYYY&month=MM&branchId=xxx
+GET /api/reports/employee/:userId/details?startDate=X&endDate=Y&branchId=xxx
+```
+
+**Employee Detail Report Enhancement**:
+- Saat cabang dipilih, daftar karyawan difilter sesuai cabang
+- Memudahkan SUPER_ADMIN untuk melihat report per cabang
+
+---
+
+### 🔧 Technical Changes
+
+#### Backend
+- ✅ Added `branchId` optional query parameter to reports controller
+- ✅ Updated `getDailySummary()` to filter by branchId
+- ✅ Updated `getMonthlyAttendanceGrid()` to filter by branchId
+- ✅ Updated `getEmployeeDetailReport()` to filter by branchId
+- ✅ Updated work-schedule service to include `department.branch` relation
+- Location: `backend/src/modules/reports/reports.controller.ts`
+- Location: `backend/src/modules/reports/reports.service.ts`
+
+#### Web Admin
+- ✅ Updated 7 data pages with conditional branch column
+- ✅ Updated 3 report pages with branch filter dropdown
+- ✅ Added `authApi.getUserRole()` check for SUPER_ADMIN detection
+- ✅ Updated `reportsApi` methods to accept optional `branchId` parameter
+- Location: `web-admin/src/pages/*/` (7 data pages + 3 report pages)
+- Location: `web-admin/src/api/index.ts`
+
+---
+
+### 📊 Files Changed
+
+| Component | File | Changes |
+|-----------|------|---------|
+| Backend | `reports.controller.ts` | Added branchId query param |
+| Backend | `reports.service.ts` | Branch filtering logic |
+| Backend | `work-schedule.service.ts` | Include department.branch |
+| API | `web-admin/src/api/index.ts` | Updated report methods |
+| Page | `Employees.tsx` | Branch column |
+| Page | `Attendance.tsx` | Branch column |
+| Page | `PendingRegistrations.tsx` | Branch column |
+| Page | `Departments.tsx` | Branch column |
+| Page | `WorkSchedules.tsx` | Branch column |
+| Page | `Holidays.tsx` | Branch column |
+| Page | `FaceMatchLogs.tsx` | Branch column |
+| Page | `DailyReports.tsx` | Branch filter |
+| Page | `MonthlyReports.tsx` | Branch filter |
+| Page | `EmployeeDetailReport.tsx` | Branch filter + filtered employee list |
+
+---
+
+## [2.7.0] Multi-Branch Support & Admin Management (2025-12-04)
+
+### 🎯 Major Feature: Multi-Branch Support
+
+#### ✅ Branch Management
+**Sistem sekarang mendukung multi-cabang/lokasi**
+
+- ✅ **Database**: New `Branch` model dengan fields: name, code, address, city, isActive
+- ✅ **Database**: New `AdminBranchAccess` junction table untuk akses admin ke cabang
+- ✅ **Backend**: Full CRUD endpoints untuk branch management
+- ✅ **Backend**: Public endpoint `/branches/list` untuk Android app
+- ✅ **Web Admin**: Halaman baru "Cabang" untuk CRUD management
+- Location: `backend/src/modules/branch/`
+- Location: `web-admin/src/pages/Branches/Branches.tsx`
+
+**API Endpoints**:
+```
+GET    /api/branches              # List semua cabang (admin)
+GET    /api/branches/list         # List cabang aktif (public)
+POST   /api/branches              # Create cabang (SUPER_ADMIN)
+PUT    /api/branches/:id          # Update cabang
+DELETE /api/branches/:id          # Delete cabang
+```
+
+#### ✅ Role-Based Branch Access
+**Data difilter berdasarkan akses cabang user**
+
+- ✅ **BranchAccessService**: Helper service untuk get user's branch access
+- ✅ **SUPER_ADMIN**: Melihat semua data tanpa filter
+- ✅ **BRANCH_ADMIN**: Hanya melihat data dari cabang yang bisa diakses
+- Location: `backend/src/modules/auth/branch-access.service.ts`
+
+**Services yang Diupdate dengan Branch Filtering**:
+| Service | Method | Filter |
+|---------|--------|--------|
+| `employee.service.ts` | `findAll()` | Filter by `user.branchId` |
+| `attendance.service.ts` | `getAllAttendances()` | Filter by `user.branchId` |
+| `department.service.ts` | `findAll()` | Filter by `department.branchId` |
+| `reports.service.ts` | `getDashboardStats()` | Filter employees & attendance |
+| `reports.service.ts` | `getDashboardPresence()` | Filter employees |
+| `face-registration.service.ts` | `getPendingRegistrations()` | Filter by `registration.branchId` |
+
+---
+
+### 🎯 Major Feature: Admin Management
+
+#### ✅ Admin Users CRUD
+**SUPER_ADMIN dapat mengelola akun admin lain**
+
+- ✅ **Database**: Added `allowedMenus` field to User model
+- ✅ **Backend**: New `AdminModule` dengan CRUD endpoints
+- ✅ **Web Admin**: Halaman baru "Manajemen Admin"
+- ✅ **UI**: Form untuk create/edit admin dengan role, menu access, branch access
+- Location: `backend/src/modules/admin/`
+- Location: `web-admin/src/pages/AdminUsers/AdminUsers.tsx`
+
+**API Endpoints**:
+```
+GET    /api/admin-users           # List semua admin
+GET    /api/admin-users/menus     # List menu yang tersedia
+POST   /api/admin-users           # Create admin baru
+PUT    /api/admin-users/:id       # Update admin
+DELETE /api/admin-users/:id       # Delete admin
+```
+
+#### ✅ Menu Access Control
+**Admin dapat dibatasi menu yang bisa diakses**
+
+- ✅ **Backend**: `allowedMenus` disimpan sebagai JSON array di database
+- ✅ **Backend**: Login response menyertakan `allowedMenus`
+- ✅ **Web Admin**: `allowedMenus` disimpan di localStorage saat login
+- ✅ **Web Admin**: Layout.tsx memfilter menu berdasarkan `allowedMenus`
+- Location: `backend/src/modules/auth/auth.service.ts`
+- Location: `web-admin/src/api/auth.ts`
+- Location: `web-admin/src/components/layout/Layout.tsx`
+
+**Available Menu Keys**:
+- `dashboard`, `employees`, `attendance`, `face-registration`
+- `branches`, `departments`, `work-schedules`, `holidays`
+- `reports`, `face-match-logs`, `settings`, `admin-users`
+
+#### ✅ Dynamic Sidebar
+**Menu yang tidak diizinkan otomatis tersembunyi**
+
+- ✅ **SUPER_ADMIN**: Melihat semua menu (allowedMenus = null)
+- ✅ **BRANCH_ADMIN**: Hanya melihat menu yang ada di `allowedMenus`
+- ✅ **No Alert**: Menu tersembunyi, bukan menampilkan alert saat diklik
+- Location: `web-admin/src/components/layout/Layout.tsx`
+
+---
+
+### 🔧 Technical Changes
+
+#### Backend
+- ✅ New `Branch` model in Prisma schema
+- ✅ New `AdminBranchAccess` model for many-to-many relation
+- ✅ Added `branchId` to User, Department, FaceRegistration models
+- ✅ Added `allowedMenus` to User model
+- ✅ New `BranchModule` with CRUD endpoints
+- ✅ New `AdminModule` with CRUD endpoints
+- ✅ New `BranchAccessService` for branch filtering
+- ✅ Updated all controllers to use `@Roles(Role.ADMIN, Role.BRANCH_ADMIN)`
+- ✅ Updated all services to support branch filtering
+
+#### Web Admin
+- ✅ New `Branches` page for branch management
+- ✅ New `AdminUsers` page for admin management
+- ✅ Updated `authApi` to store/retrieve `allowedMenus`
+- ✅ Updated `Layout.tsx` to filter menu based on `allowedMenus`
+- ✅ Added `branchApi` and `adminUsersApi` to API client
+- ✅ Updated types for Branch and AdminUser
+
+---
+
+### 📊 Database Schema Changes
+
+**New Models**:
+```prisma
+model Branch {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique
+  address   String?  @db.Text
+  city      String?
+  isActive  Boolean  @default(true)
+  // Relations: users, departments, faceRegistrations, adminAccess
+}
+
+model AdminBranchAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  branchId  String
+  isDefault Boolean  @default(false)
+  // Relations: user, branch
+  @@unique([userId, branchId])
+}
+```
+
+**Updated User Model**:
+```prisma
+model User {
+  // ... existing fields
+  branchId          String?
+  allowedMenus      String?   @db.Text  // JSON array of menu keys
+  adminBranchAccess AdminBranchAccess[]
+}
+```
+
+---
+
 ## [2.6.0] Face Alignment for Improved Recognition (2025-12-03)
 
 ### 🎯 Major Feature: Face Alignment

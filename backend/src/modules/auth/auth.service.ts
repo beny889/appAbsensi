@@ -88,6 +88,7 @@ export class AuthService {
         phone: user.phone,
         position: user.position,
         departmentId: user.departmentId,
+        allowedMenus: user.allowedMenus ? JSON.parse(user.allowedMenus) : null,
       },
       token,
     };

@@ -15,7 +15,7 @@ import { UpdateSimilarityDto } from './dto/update-setting.dto';
 
 @Controller('settings')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN)
+@Roles(Role.ADMIN, Role.BRANCH_ADMIN)
 export class SettingsController {
   constructor(private settingsService: SettingsService) {}
 

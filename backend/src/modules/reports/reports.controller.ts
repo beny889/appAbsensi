@@ -12,14 +12,17 @@ export class ReportsController {
   constructor(private reportsService: ReportsService) {}
 
   @Get('daily')
-  @Roles(Role.ADMIN)
-  async getDailySummary(@Query('date') date: string) {
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
+  async getDailySummary(
+    @Query('date') date: string,
+    @Query('branchId') branchId?: string,
+  ) {
     const reportDate = date ? new Date(date) : new Date();
-    return this.reportsService.getDailySummary(reportDate);
+    return this.reportsService.getDailySummary(reportDate, branchId);
   }
 
   @Get('monthly')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async getMonthlySummary(
     @Query('year') year: string,
     @Query('month') month: string,
@@ -32,16 +35,17 @@ export class ReportsController {
   }
 
   @Get('monthly-grid')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async getMonthlyAttendanceGrid(
     @Query('year') year: string,
     @Query('month') month: string,
+    @Query('branchId') branchId?: string,
   ) {
     const currentDate = new Date();
     const reportYear = year ? parseInt(year, 10) : currentDate.getFullYear();
     const reportMonth = month ? parseInt(month, 10) : currentDate.getMonth() + 1;
 
-    return this.reportsService.getMonthlyAttendanceGrid(reportYear, reportMonth);
+    return this.reportsService.getMonthlyAttendanceGrid(reportYear, reportMonth, branchId);
   }
 
   @Get('user/monthly')
@@ -58,7 +62,7 @@ export class ReportsController {
   }
 
   @Get('user/:userId/monthly')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async getUserMonthlyReport(
     @Param('userId') userId: string,
     @Query('year') year: string,
@@ -72,23 +76,24 @@ export class ReportsController {
   }
 
   @Get('dashboard')
-  @Roles(Role.ADMIN)
-  async getDashboardStats() {
-    return this.reportsService.getDashboardStats();
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
+  async getDashboardStats(@CurrentUser() user: any) {
+    return this.reportsService.getDashboardStats(user.id);
   }
 
   @Get('dashboard-presence')
-  @Roles(Role.ADMIN)
-  async getDashboardPresence() {
-    return this.reportsService.getDashboardPresence();
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
+  async getDashboardPresence(@CurrentUser() user: any) {
+    return this.reportsService.getDashboardPresence(user.id);
   }
 
   @Get('employee/:userId/details')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async getEmployeeDetailReport(
     @Param('userId') userId: string,
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
+    @Query('branchId') branchId?: string,
   ) {
     // Parse date string as local date (YYYY-MM-DD)
     const parseLocalDate = (dateStr: string, isEndOfDay = false) => {
@@ -103,6 +108,6 @@ export class ReportsController {
     const start = startDate ? parseLocalDate(startDate) : new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
     const end = endDate ? parseLocalDate(endDate, true) : new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
 
-    return this.reportsService.getEmployeeDetailReport(userId, start, end);
+    return this.reportsService.getEmployeeDetailReport(userId, start, end, branchId);
   }
 }

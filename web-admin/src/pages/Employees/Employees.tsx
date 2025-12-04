@@ -41,13 +41,14 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
 } from '@mui/icons-material';
-import { employeesApi, departmentApi } from '@/api';
+import { employeesApi, departmentApi, authApi } from '@/api';
 import { Employee, Department, UpdateEmployeeDto } from '@/types';
 import { usePageTitle } from '@/contexts/PageTitleContext';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
 export default function Employees() {
+  const isSuperAdmin = authApi.getUserRole() === 'SUPER_ADMIN';
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -241,6 +242,7 @@ export default function Employees() {
               <TableCell sx={{ fontWeight: 'bold', py: 2, width: 60 }} align="center">No</TableCell>
               <TableCell sx={{ fontWeight: 'bold', py: 2 }}>Karyawan</TableCell>
               <TableCell sx={{ fontWeight: 'bold', py: 2 }}>Departemen</TableCell>
+              {isSuperAdmin && <TableCell sx={{ fontWeight: 'bold', py: 2 }}>Cabang</TableCell>}
               <TableCell sx={{ fontWeight: 'bold', py: 2 }} align="center">Status</TableCell>
               <TableCell sx={{ fontWeight: 'bold', py: 2 }}>Terdaftar</TableCell>
               <TableCell sx={{ fontWeight: 'bold', py: 2 }} align="center">Aksi</TableCell>
@@ -249,7 +251,7 @@ export default function Employees() {
           <TableBody>
             {paginatedEmployees.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={isSuperAdmin ? 7 : 6} align="center" sx={{ py: 6 }}>
                   <PersonIcon sx={{ fontSize: 48, color: '#ccc', mb: 1 }} />
                   <Typography variant="body1" color="text.secondary">
                     {search ? 'Tidak ada hasil pencarian' : 'Belum ada data karyawan'}
@@ -315,6 +317,13 @@ export default function Employees() {
                       sx={{ fontWeight: 500 }}
                     />
                   </TableCell>
+                  {isSuperAdmin && (
+                    <TableCell>
+                      <Typography variant="body2">
+                        {employee.branch?.name || '-'}
+                      </Typography>
+                    </TableCell>
+                  )}
                   <TableCell align="center">
                     <Chip
                       label={employee.isActive ? 'Aktif' : 'Nonaktif'}

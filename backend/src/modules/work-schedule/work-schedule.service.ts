@@ -51,7 +51,13 @@ export class WorkScheduleService {
   async findAll() {
     return this.prisma.workSchedule.findMany({
       include: {
-        department: true,
+        department: {
+          include: {
+            branch: {
+              select: { id: true, name: true, code: true },
+            },
+          },
+        },
       },
       orderBy: {
         department: {

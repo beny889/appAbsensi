@@ -33,13 +33,14 @@ import {
   SwapHoriz as SwapIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
-import { faceRegistrationApi, departmentApi, employeesApi, DuplicateCheckResult } from '@/api';
+import { faceRegistrationApi, departmentApi, employeesApi, DuplicateCheckResult, authApi } from '@/api';
 import { FaceRegistration, ApproveRegistrationDto, Department, Employee } from '@/types';
 import { usePageTitle } from '@/contexts/PageTitleContext';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
 export default function PendingRegistrations() {
+  const isSuperAdmin = authApi.getUserRole() === 'SUPER_ADMIN';
   const [registrations, setRegistrations] = useState<FaceRegistration[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -248,6 +249,7 @@ export default function PendingRegistrations() {
               <TableCell align="center" sx={{ width: 60 }}><strong>No</strong></TableCell>
               <TableCell><strong>Foto</strong></TableCell>
               <TableCell><strong>Nama</strong></TableCell>
+              {isSuperAdmin && <TableCell><strong>Cabang</strong></TableCell>}
               <TableCell><strong>Status</strong></TableCell>
               <TableCell><strong>Tanggal Daftar</strong></TableCell>
               <TableCell align="center"><strong>Aksi</strong></TableCell>
@@ -256,7 +258,7 @@ export default function PendingRegistrations() {
           <TableBody>
             {registrations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={isSuperAdmin ? 7 : 6} align="center">
                   <Typography variant="body2" color="textSecondary" sx={{ py: 4 }}>
                     Tidak ada pendaftaran yang menunggu persetujuan
                   </Typography>
@@ -280,6 +282,13 @@ export default function PendingRegistrations() {
                     </Avatar>
                   </TableCell>
                   <TableCell>{registration.name}</TableCell>
+                  {isSuperAdmin && (
+                    <TableCell>
+                      <Typography variant="body2">
+                        {registration.branch?.name || '-'}
+                      </Typography>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Chip
                       label={registration.status}

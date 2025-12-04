@@ -26,12 +26,13 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { departmentApi } from '@/api';
+import { departmentApi, authApi } from '@/api';
 import { Department, CreateDepartmentDto } from '@/types';
 import { usePageTitle } from '@/contexts/PageTitleContext';
 import toast from 'react-hot-toast';
 
 export default function Departments() {
+  const isSuperAdmin = authApi.getUserRole() === 'SUPER_ADMIN';
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -154,6 +155,7 @@ export default function Departments() {
           <TableHead>
             <TableRow>
               <TableCell><strong>Nama Departemen</strong></TableCell>
+              {isSuperAdmin && <TableCell><strong>Cabang</strong></TableCell>}
               <TableCell><strong>Deskripsi</strong></TableCell>
               <TableCell><strong>Jumlah User</strong></TableCell>
               <TableCell><strong>Jadwal Kerja</strong></TableCell>
@@ -164,7 +166,7 @@ export default function Departments() {
           <TableBody>
             {departments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={isSuperAdmin ? 7 : 6} align="center">
                   <Typography variant="body2" color="textSecondary" py={3}>
                     Belum ada departemen yang terdaftar
                   </Typography>
@@ -174,6 +176,13 @@ export default function Departments() {
               departments.map((department) => (
                 <TableRow key={department.id}>
                   <TableCell>{department.name}</TableCell>
+                  {isSuperAdmin && (
+                    <TableCell>
+                      <Typography variant="body2">
+                        {department.branch?.name || '-'}
+                      </Typography>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Typography variant="body2" color="textSecondary">
                       {department.description || '-'}

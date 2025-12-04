@@ -13,11 +13,12 @@ import { CreateDepartmentDto, UpdateDepartmentDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Role } from '@prisma/client';
 
 @Controller('departments')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN) // Only admins can manage departments
+@Roles(Role.ADMIN, Role.BRANCH_ADMIN) // Only admins can manage departments
 export class DepartmentController {
   constructor(private departmentService: DepartmentService) {}
 
@@ -27,8 +28,8 @@ export class DepartmentController {
   }
 
   @Get()
-  async findAll() {
-    return this.departmentService.findAll();
+  async findAll(@CurrentUser() user: any) {
+    return this.departmentService.findAll(user.id);
   }
 
   @Get(':id')

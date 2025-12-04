@@ -28,7 +28,8 @@ export default function Login() {
     setLoading(true);
     try {
       const response = await authApi.login({ email, password });
-      if (response.user.role !== 'ADMIN') {
+      const adminRoles = ['SUPER_ADMIN', 'BRANCH_ADMIN', 'ADMIN'];
+      if (!adminRoles.includes(response.user.role)) {
         toast.error('Hanya admin yang dapat mengakses panel ini');
         authApi.logout();
         return;

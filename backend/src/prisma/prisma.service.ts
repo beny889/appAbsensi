@@ -56,6 +56,18 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return this.prisma.faceMatchAttempt;
   }
 
+  get branch() {
+    return this.prisma.branch;
+  }
+
+  get adminBranchAccess() {
+    return this.prisma.adminBranchAccess;
+  }
+
+  get deviceBinding() {
+    return this.prisma.deviceBinding;
+  }
+
   // Expose transaction and other utility methods
   get $transaction() {
     return this.prisma.$transaction.bind(this.prisma);
