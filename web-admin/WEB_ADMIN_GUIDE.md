@@ -110,6 +110,8 @@ web-admin/src/
 - Active/inactive toggle
 - View employee count per departemen
 - View schedule status
+- **Branch Selection (SUPER_ADMIN)**: Pilih cabang saat tambah/edit (wajib)
+- **Edit Mode**: Cabang tidak dapat diubah (read-only)
 
 ### Work Schedules
 **Path**: `/work-schedules`
@@ -118,6 +120,8 @@ web-admin/src/
 - Format waktu: HH:MM
 - Check-in time & Check-out time
 - Digunakan untuk late/early detection
+- **Branch Selection (SUPER_ADMIN)**: Pilih cabang dulu → filter departemen
+- **Edit Mode**: Cabang dan departemen tidak dapat diubah (read-only)
 
 ### Attendance Records
 **Path**: `/attendance`
@@ -161,6 +165,8 @@ web-admin/src/
 - CRUD hari libur nasional/cuti bersama
 - Fields: Tanggal, Nama, Deskripsi, isGlobal, Karyawan
 - Otomatis terintegrasi dengan reports
+- **Branch Selection (SUPER_ADMIN)**: Pilih cabang saat tambah/edit (wajib)
+- **Edit Mode**: Cabang tidak dapat diubah (read-only)
 - **Multi-Employee Holiday**:
   - Checkbox "Libur untuk semua karyawan" (isGlobal)
   - Multi-select karyawan jika tidak global
@@ -331,7 +337,11 @@ interface Department {
 - Row actions (edit, delete)
 
 ### Dialogs
-- Confirmation dialogs
+- **Delete Confirmation Modal** (v2.7.2)
+  - MUI Dialog dengan warning icon
+  - Nama item ditampilkan dengan Chip
+  - Loading spinner saat proses
+  - Tombol styled (Batal/Hapus)
 - Form dialogs (approval, create, edit)
 - Alert dialogs
 
@@ -434,10 +444,11 @@ npm run type-check
 - [x] Settings page (face threshold)
 - [x] Change admin password
 - [x] Face Match Logs (debugging)
+- [x] Branch selection in modals (SUPER_ADMIN)
 - [ ] Export to Excel
 - [ ] Dark mode
 
 ---
 
-**Last Updated**: November 30, 2025
-**Version**: 2.4.0 (Production Deployment - Qword Hosting)
+**Last Updated**: December 5, 2025
+**Version**: 2.7.3 (Branch Selection in Modals)

@@ -26,6 +26,7 @@ interface GroupedAttendance {
   userId: string;
   userName: string;
   departmentName: string;
+  branchName: string;
   checkIn: Attendance | null;
   checkOut: Attendance | null;
 }
@@ -59,6 +60,7 @@ export default function DailyReports() {
           userId,
           userName: attendance.user?.name || '-',
           departmentName: attendance.user?.department?.name || '-',
+          branchName: attendance.user?.branch?.name || '-',
           checkIn: null,
           checkOut: null,
         });
@@ -196,6 +198,7 @@ export default function DailyReports() {
                   <TableHead>
                     <TableRow>
                       <TableCell>Nama</TableCell>
+                      {isSuperAdmin && <TableCell>Cabang</TableCell>}
                       <TableCell>Departemen</TableCell>
                       <TableCell>Masuk</TableCell>
                       <TableCell>Pulang</TableCell>
@@ -206,6 +209,7 @@ export default function DailyReports() {
                     {groupedAttendances.map((record) => (
                       <TableRow key={record.userId}>
                         <TableCell>{record.userName}</TableCell>
+                        {isSuperAdmin && <TableCell>{record.branchName}</TableCell>}
                         <TableCell>{record.departmentName}</TableCell>
                         <TableCell>
                           {record.checkIn ? format(new Date(record.checkIn.timestamp), 'HH:mm') : '-'}

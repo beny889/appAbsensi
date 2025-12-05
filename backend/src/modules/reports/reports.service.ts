@@ -12,14 +12,14 @@ export class ReportsService {
     private branchAccessService: BranchAccessService,
   ) {}
 
-  async getDailySummary(date: Date, branchId?: string) {
+  async getDailySummary(date: Date, branchId?: string, userId?: string) {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
 
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Build where clause with optional branch filter
+    // Build where clause with branch filter
     const attendanceWhere: any = {
       timestamp: {
         gte: startOfDay,
@@ -29,9 +29,16 @@ export class ReportsService {
 
     const employeeWhere: any = { role: 'EMPLOYEE', isActive: true };
 
+    // Apply branch filter - explicit branchId takes priority, then user's branch access
     if (branchId) {
       attendanceWhere.user = { branchId };
       employeeWhere.branchId = branchId;
+    } else if (userId) {
+      const branchFilter = await this.branchAccessService.getBranchFilter(userId);
+      if (branchFilter) {
+        attendanceWhere.user = { branchId: branchFilter.branchId };
+        employeeWhere.branchId = branchFilter.branchId;
+      }
     }
 
     const attendances = await this.prisma.attendance.findMany({
@@ -138,9 +145,9 @@ export class ReportsService {
     };
   }
 
-  async getMonthlyAttendanceGrid(year: number, month: number, branchId?: string) {
+  async getMonthlyAttendanceGrid(year: number, month: number, branchId?: string, userId?: string) {
     try {
-      console.log('[DEBUG] getMonthlyAttendanceGrid called with:', { year, month, branchId });
+      console.log('[DEBUG] getMonthlyAttendanceGrid called with:', { year, month, branchId, userId });
 
       const startOfMonth = new Date(year, month - 1, 1);
       const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
@@ -154,10 +161,17 @@ export class ReportsService {
 
       console.log('[DEBUG] Date calculations:', { startOfMonth, endOfMonth, daysInMonth, displayDays });
 
-      // Build employee where clause with optional branch filter
+      // Build employee where clause with branch filter
       const employeeWhere: any = { role: 'EMPLOYEE', isActive: true };
+
+      // Apply branch filter - explicit branchId takes priority, then user's branch access
       if (branchId) {
         employeeWhere.branchId = branchId;
+      } else if (userId) {
+        const branchFilter = await this.branchAccessService.getBranchFilter(userId);
+        if (branchFilter) {
+          employeeWhere.branchId = branchFilter.branchId;
+        }
       }
 
       // Get all active employees with startDate

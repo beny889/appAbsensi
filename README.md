@@ -47,12 +47,29 @@ Sistem absensi dengan **on-device face recognition** menggunakan MobileFaceNet y
 - **Dynamic Sidebar** - Menu otomatis tersembunyi jika tidak punya akses
 
 ### SUPER_ADMIN Enhancements (v2.7.1)
-- **Branch Column** - Kolom "Cabang" di 7 halaman data (hanya untuk SUPER_ADMIN):
+- **Branch Column** - Kolom "Cabang" di 8 halaman data (hanya untuk SUPER_ADMIN):
   - Employees, Attendance, Face Registration, Departments
-  - Work Schedules, Holidays, Face Match Logs
+  - Work Schedules, Holidays, Face Match Logs, **Daily Reports**
 - **Branch Filter** - Filter cabang di 3 halaman report (single-select):
   - Daily Reports, Monthly Reports, Employee Detail Report
 - **Filtered Employee List** - Daftar karyawan difilter berdasarkan cabang yang dipilih
+
+### Branch Selection in Modals (v2.7.3)
+- **Branch Field untuk SUPER_ADMIN** - Pilih cabang saat tambah/edit data
+  - Departments, WorkSchedules, Holidays
+  - Field wajib diisi (tidak boleh kosong)
+
+### BRANCH_ADMIN Auto-Filter (v2.7.4)
+- **Auto-Filter Reports** - Backend otomatis filter reports sesuai branch access
+  - Daily Reports, Monthly Reports auto-filter untuk BRANCH_ADMIN
+  - SUPER_ADMIN tetap bisa lihat semua cabang
+
+### UI/UX Improvements (v2.7.2)
+- **Delete Confirmation Modal** - Modal dialog MUI mengganti window.confirm()
+  - WorkSchedules, Branches, Departments
+  - Warning icon, loading spinner, tombol styled
+- **Icon Button Consistency** - Tooltip dan hover effect pada semua tombol aksi
+- **Work Schedule Branch Access** - BRANCH_ADMIN hanya bisa kelola jadwal cabangnya
 
 ### Admin Features
 - **Face Registration Approval** - Review dan approve pendaftaran wajah
@@ -405,5 +422,5 @@ Private - Internal Use Only
 
 ---
 
-**Last Updated**: December 4, 2025
-**Version**: 2.7.1 (SUPER_ADMIN Branch Column & Filter)
+**Last Updated**: December 5, 2025
+**Version**: 2.7.2 (UI/UX Improvements & Branch Access)

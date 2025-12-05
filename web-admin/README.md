@@ -93,6 +93,18 @@ Project ini sudah di-deploy dan berjalan di production dengan fitur-fitur beriku
   - Filter cabang di 3 halaman report (Daily, Monthly, Employee Detail)
   - Daftar karyawan difilter berdasarkan cabang yang dipilih di Employee Detail Report
 
+- ✅ **Branch Selection in Modals** (v2.7.3)
+  - Field cabang di modal Departments, WorkSchedules, Holidays (SUPER_ADMIN only)
+  - Field wajib diisi, tidak boleh kosong
+  - Saat edit: field cabang read-only (tidak dapat diubah)
+  - WorkSchedules: Pilih cabang dulu → filter departemen
+
+- ✅ **BRANCH_ADMIN Auto-Filter** (v2.7.4)
+  - Backend auto-filter reports (Daily, Monthly) berdasarkan branch access
+  - BRANCH_ADMIN hanya melihat data cabang yang diakses
+  - SUPER_ADMIN tetap bisa lihat semua cabang
+  - Kolom "Cabang" di Daily Reports untuk SUPER_ADMIN
+
 ## 🚀 Quick Start
 
 ### Prerequisites

@@ -1,5 +1,199 @@
 # 📝 Changelog - Sistem Absensi
 
+## [2.7.4] Branch Access Filtering & UI (2025-12-05)
+
+### 🎯 Feature: Branch Column di Laporan Harian
+
+#### ✅ Kolom Cabang untuk SUPER_ADMIN
+**Menambahkan kolom Cabang di tabel Detail Absensi (Laporan Harian)**
+
+- ✅ Kolom "Cabang" muncul di header dan body tabel
+- ✅ Hanya ditampilkan untuk user SUPER_ADMIN
+- ✅ BRANCH_ADMIN tidak melihat kolom ini (karena hanya akses 1 cabang)
+
+---
+
+### 🐛 Bug Fixes
+
+#### BRANCH_ADMIN Reports Filtering
+**Problem**: BRANCH_ADMIN bisa melihat absensi dari semua cabang di Laporan Harian dan Bulanan
+
+**Root Cause**: Backend tidak auto-filter berdasarkan branch access user saat branchId tidak dikirim
+
+**Fix**:
+- Updated `reports.service.ts` - `getDailySummary()`: Auto-apply branch filter dari user's branch access
+- Updated `reports.service.ts` - `getMonthlyAttendanceGrid()`: Auto-apply branch filter dari user's branch access
+- Updated `reports.controller.ts`: Pass userId ke service methods
+
+**Behavior**:
+- SUPER_ADMIN: Bisa lihat semua cabang (tanpa filter), bisa filter per cabang
+- BRANCH_ADMIN: Otomatis difilter sesuai cabang yang diakses
+
+---
+
+### 📊 Files Changed
+
+| Component | File | Changes |
+|-----------|------|---------|
+| Backend Controller | `reports.controller.ts` | Pass userId to getDailySummary, getMonthlyAttendanceGrid |
+| Backend Service | `reports.service.ts` | Auto-apply branch filter based on user access |
+| Frontend Page | `DailyReports.tsx` | Add Branch column for SUPER_ADMIN |
+
+---
+
+## [2.7.3] Branch Selection in Modals (2025-12-05)
+
+### 🎯 Feature: Branch Field di Modal CRUD
+
+#### ✅ Field Cabang untuk SUPER_ADMIN
+**Menambahkan pilihan cabang di modal Tambah/Edit untuk SUPER_ADMIN**
+
+- ✅ **Departments**: Field cabang wajib di modal tambah/edit
+- ✅ **WorkSchedules**: Field cabang untuk filter departemen
+- ✅ **Holidays**: Field cabang wajib di modal tambah/edit
+
+**Behavior**:
+- Field cabang hanya muncul untuk user SUPER_ADMIN
+- Field cabang **wajib diisi** (tidak boleh kosong)
+- BRANCH_ADMIN: cabang otomatis dari akses cabang mereka
+- Saat edit: field cabang dan departemen disabled (read-only)
+
+**Validation**:
+- Red border jika cabang belum dipilih
+- Tombol Simpan disabled sampai cabang dipilih
+- Helper text: "Cabang tidak dapat diubah" saat mode edit
+
+---
+
+### 🔧 Technical Changes
+
+#### Backend - DTO Updates
+- ✅ Added `branchId` to `UpdateDepartmentDto`
+- ✅ Added `branchId` to `UpdateHolidayDto`
+- ✅ Updated `department.service.ts` untuk handle branchId di update
+- ✅ Updated `holidays.service.ts` untuk handle branchId di update
+
+#### Frontend - Modal Improvements
+- ✅ Added branch Select component ke 3 halaman
+- ✅ Added validation untuk required branchId
+- ✅ Added disabled state saat mode edit
+- ✅ Fixed WorkSchedules bug: branch/department reset saat edit
+
+---
+
+### 🐛 Bug Fixes
+
+#### WorkSchedules Edit Bug
+**Problem**: Saat edit jadwal kerja, mengubah cabang ke-reset departemen dan tidak bisa dipilih ulang
+
+**Root Cause**: Field cabang tidak disabled saat edit, tapi departemen disabled
+
+**Fix**:
+- Field cabang dan departemen keduanya disabled saat mode edit
+- Menampilkan helper text "Cabang tidak dapat diubah"
+
+---
+
+### 📊 Files Changed
+
+| Component | File | Changes |
+|-----------|------|---------|
+| Backend DTO | `update-department.dto.ts` | Added branchId field |
+| Backend DTO | `holidays/dto/index.ts` | Added branchId to UpdateHolidayDto |
+| Backend Service | `department.service.ts` | Handle branchId in update |
+| Backend Service | `holidays.service.ts` | Handle branchId in update |
+| Frontend Types | `types/index.ts` | Added branchId to DTOs |
+| Page | `Departments.tsx` | Branch select in modal |
+| Page | `WorkSchedules.tsx` | Branch select + fix edit bug |
+| Page | `Holidays.tsx` | Branch select in modal |
+
+---
+
+## [2.7.2] UI Improvements & Branch Access (2025-12-05)
+
+### 🎯 Feature: Delete Confirmation Modal
+
+#### ✅ Modal Dialog untuk Konfirmasi Hapus
+**Mengganti `window.confirm()` dengan MUI Dialog yang lebih modern**
+
+- ✅ **WorkSchedules**: Modal konfirmasi hapus jadwal kerja
+- ✅ **Branches**: Modal konfirmasi hapus cabang
+- ✅ **Departments**: Modal konfirmasi hapus departemen
+
+**Modal Features**:
+- Warning icon berwarna merah
+- Nama item yang akan dihapus ditampilkan dengan Chip
+- Pesan "Tindakan ini tidak dapat dibatalkan"
+- Tombol Batal (outlined) dan Hapus (merah dengan icon)
+- Loading spinner saat proses penghapusan
+- Dialog tidak bisa ditutup selama proses berlangsung
+
+---
+
+### 🎯 Feature: Icon Button Styling
+
+#### ✅ Konsistensi Style Edit & Delete Button
+**Semua halaman data sekarang memiliki style yang konsisten**
+
+- ✅ **Tooltip** pada hover ("Edit" / "Hapus")
+- ✅ **Hover effect** dengan background color change
+- ✅ **Icon size** lebih kecil (`fontSize="small"`)
+
+**Halaman yang diupdate**:
+- WorkSchedules
+- Branches (termasuk binding codes table)
+- Departments
+
+**Style Pattern**:
+```tsx
+<Tooltip title="Hapus">
+  <IconButton
+    size="small"
+    onClick={handleDelete}
+    sx={{
+      color: '#d32f2f',
+      '&:hover': { bgcolor: '#ffebee' }
+    }}
+  >
+    <DeleteIcon fontSize="small" />
+  </IconButton>
+</Tooltip>
+```
+
+---
+
+### 🔧 Technical Changes
+
+#### Backend - Work Schedule Branch Access
+- ✅ Added branch access validation to `create()` method
+- ✅ Added branch access validation to `update()` method
+- ✅ Added branch access validation to `remove()` method
+- ✅ BRANCH_ADMIN can only manage work schedules for their branch's departments
+- Location: `backend/src/modules/work-schedule/work-schedule.service.ts`
+
+#### Web Admin - UI Components
+- ✅ Added `WarningIcon` import to affected pages
+- ✅ Added delete dialog state management
+- ✅ Replaced `window.confirm()` with MUI Dialog
+- ✅ Added consistent IconButton styling with Tooltip
+- Location: `web-admin/src/pages/WorkSchedules/WorkSchedules.tsx`
+- Location: `web-admin/src/pages/Branches/Branches.tsx`
+- Location: `web-admin/src/pages/Departments/Departments.tsx`
+
+---
+
+### 📊 Files Changed
+
+| Component | File | Changes |
+|-----------|------|---------|
+| Backend | `work-schedule.service.ts` | Branch access validation |
+| Backend | `work-schedule.controller.ts` | Pass userId to service |
+| Page | `WorkSchedules.tsx` | Delete modal + icon styling |
+| Page | `Branches.tsx` | Delete modal + icon styling |
+| Page | `Departments.tsx` | Delete modal + icon styling |
+
+---
+
 ## [2.7.1] SUPER_ADMIN Branch Column & Filter (2025-12-04)
 
 ### 🎯 Feature: Branch Column di Halaman Data

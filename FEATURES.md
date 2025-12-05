@@ -208,7 +208,7 @@ Admin dapat dibatasi menu yang bisa diakses:
 ## SUPER_ADMIN Enhancements (v2.7.1)
 
 ### Branch Column di Halaman Data
-**Kolom "Cabang" ditampilkan di 7 halaman data (hanya untuk SUPER_ADMIN)**
+**Kolom "Cabang" ditampilkan di 8 halaman data (hanya untuk SUPER_ADMIN)**
 
 | Halaman | Lokasi Kolom | Data Source |
 |---------|--------------|-------------|
@@ -219,6 +219,7 @@ Admin dapat dibatasi menu yang bisa diakses:
 | Work Schedules | Setelah Departemen | `schedule.department?.branch?.name` |
 | Holidays | Setelah Tanggal | `holiday.branch?.name` |
 | Face Match Logs | Setelah Waktu | `attempt.branch?.name` |
+| **Daily Reports** | Setelah Nama | `attendance.user?.branch?.name` |
 
 **Catatan**: Kolom branch hanya tampil untuk user dengan role `SUPER_ADMIN`. BRANCH_ADMIN tidak melihat kolom ini karena data sudah difilter otomatis per cabang.
 
@@ -236,6 +237,19 @@ Admin dapat dibatasi menu yang bisa diakses:
 - Single-select (bukan multi-select) untuk konsistensi
 - Di Employee Detail Report, memilih cabang akan memfilter daftar karyawan yang bisa dipilih
 - Perubahan filter langsung memuat ulang data
+
+### BRANCH_ADMIN Auto-Filter (v2.7.4)
+**Backend otomatis filter data reports berdasarkan branch access user**
+
+| Endpoint | Filter Behavior |
+|----------|-----------------|
+| `GET /reports/daily` | Auto-filter by user's branch access |
+| `GET /reports/monthly-grid` | Auto-filter by user's branch access |
+
+**Behavior**:
+- SUPER_ADMIN: Tanpa filter (lihat semua cabang), bisa filter manual
+- BRANCH_ADMIN: Otomatis difilter sesuai cabang yang diakses
+- Filter explicit `branchId` dari frontend tetap prioritas utama
 
 ---
 
@@ -329,6 +343,65 @@ Log setiap percobaan face matching untuk debugging:
 - Bandingkan threshold yang berbeda
 - Verifikasi multi-embedding digunakan (kolom Embeddings = 5)
 - Audit setiap percobaan absensi
+
+---
+
+## Branch Selection in Modals (v2.7.3)
+
+### Field Cabang di Modal CRUD
+**SUPER_ADMIN dapat memilih cabang saat tambah/edit data**
+
+| Halaman | Field Behavior | Edit Mode |
+|---------|----------------|-----------|
+| Departments | Pilih cabang (wajib) | Disabled |
+| WorkSchedules | Pilih cabang → filter departemen | Disabled |
+| Holidays | Pilih cabang (wajib) | Disabled |
+
+**Features**:
+- Field cabang hanya muncul untuk SUPER_ADMIN
+- Wajib diisi (tidak boleh kosong)
+- Red border error state jika belum dipilih
+- Tombol Simpan disabled sampai cabang dipilih
+- Saat edit: field cabang dan departemen read-only
+
+**WorkSchedules Specific**:
+- Pilih cabang dulu → departemen list difilter per cabang
+- Helper text "Pilih cabang untuk menampilkan departemen"
+- Jika cabang tidak punya departemen, tampilkan warning
+
+---
+
+## UI/UX Improvements (v2.7.2)
+
+### Delete Confirmation Modal
+**Modal dialog yang modern untuk konfirmasi hapus**
+
+| Halaman | Sebelum | Sesudah |
+|---------|---------|---------|
+| WorkSchedules | `window.confirm()` | MUI Dialog |
+| Branches | `window.confirm()` | MUI Dialog |
+| Departments | `window.confirm()` | MUI Dialog |
+
+**Modal Features**:
+- ⚠️ Warning icon berwarna merah
+- Nama item yang akan dihapus ditampilkan dengan Chip
+- Pesan "Tindakan ini tidak dapat dibatalkan"
+- Tombol Batal (outlined) dan Hapus (merah dengan icon)
+- Loading spinner saat proses penghapusan
+- Dialog tidak bisa ditutup selama proses berlangsung
+
+### Icon Button Consistency
+**Semua halaman data memiliki style button yang konsisten**
+
+- Tooltip pada hover ("Edit" / "Hapus")
+- Hover effect dengan background color
+- Icon size seragam (`fontSize="small"`)
+
+**Color Scheme**:
+| Action | Icon Color | Hover Background |
+|--------|------------|------------------|
+| Edit | `#1976d2` (blue) | `#e3f2fd` |
+| Delete | `#d32f2f` (red) | `#ffebee` |
 
 ---
 

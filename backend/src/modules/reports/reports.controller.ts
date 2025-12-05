@@ -14,11 +14,12 @@ export class ReportsController {
   @Get('daily')
   @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async getDailySummary(
+    @CurrentUser() user: any,
     @Query('date') date: string,
     @Query('branchId') branchId?: string,
   ) {
     const reportDate = date ? new Date(date) : new Date();
-    return this.reportsService.getDailySummary(reportDate, branchId);
+    return this.reportsService.getDailySummary(reportDate, branchId, user.id);
   }
 
   @Get('monthly')
@@ -37,6 +38,7 @@ export class ReportsController {
   @Get('monthly-grid')
   @Roles(Role.ADMIN, Role.BRANCH_ADMIN)
   async getMonthlyAttendanceGrid(
+    @CurrentUser() user: any,
     @Query('year') year: string,
     @Query('month') month: string,
     @Query('branchId') branchId?: string,
@@ -45,7 +47,7 @@ export class ReportsController {
     const reportYear = year ? parseInt(year, 10) : currentDate.getFullYear();
     const reportMonth = month ? parseInt(month, 10) : currentDate.getMonth() + 1;
 
-    return this.reportsService.getMonthlyAttendanceGrid(reportYear, reportMonth, branchId);
+    return this.reportsService.getMonthlyAttendanceGrid(reportYear, reportMonth, branchId, user.id);
   }
 
   @Get('user/monthly')
